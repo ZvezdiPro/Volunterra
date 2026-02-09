@@ -151,9 +151,9 @@ class _EventsPageState extends State<EventsPage> {
   Widget build(BuildContext context) {
     final userUid = _auth.currentUser?.uid;
     
-    return StreamProvider<List<Campaign>>.value(
+    return StreamProvider<List<Campaign>?>.value(
       value: DatabaseService().campaigns,
-      initialData: const [],
+      initialData: null,
       child: Scaffold(
         backgroundColor: backgroundGrey,
         
@@ -161,8 +161,16 @@ class _EventsPageState extends State<EventsPage> {
           stream: DatabaseService(uid: userUid).volunteerUserData,
           builder: (context, userSnapshot) {
             VolunteerUser? user = userSnapshot.data;
-            return Consumer<List<Campaign>>(
+            return Consumer<List<Campaign>?>(
               builder: (context, allCampaigns, child) {
+                if (allCampaigns == null) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: greenPrimary, 
+                    ),
+                  );
+                }
+
                 // Filter the campaigns based on the search query
                 List<Campaign> filteredCampaigns = allCampaigns.where((campaign) {
                   if (!_showAll) {

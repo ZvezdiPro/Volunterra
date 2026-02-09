@@ -129,6 +129,15 @@ class DatabaseService {
         .map(_campaignListFromSnapshot);
   }
 
+  Stream<List<Campaign>> get createdCampaigns {
+    if (uid == null) return Stream.value([]);
+
+    return campaignCollection
+        .where('organizerId', isEqualTo: uid)
+        .snapshots()
+        .map(_campaignListFromSnapshot);
+  }
+
   // Stream campaigns where the user is either the organizer or a registered volunteer
   Stream<List<Campaign>> get userChats {
     if (uid == null) return Stream.value([]);

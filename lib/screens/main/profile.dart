@@ -10,7 +10,6 @@ import 'package:volunteer_app/screens/main/achievements.dart';
 import 'package:volunteer_app/screens/main/saved_campaigns.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
-import 'package:volunteer_app/shared/loading.dart';
 import 'package:volunteer_app/widgets/campaign_details_screen.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -43,10 +42,17 @@ class _ProfilePageState extends State<ProfilePage> {
     final DatabaseService dbService = DatabaseService(uid: volunteer.uid);
 
     try {
-      List<Campaign> campaigns = await dbService.registeredCampaigns.first;
+      // Fetch both registered and created campaigns in parallel
+      final results = await Future.wait([
+        dbService.registeredCampaigns.first,
+        dbService.createdCampaigns.first,
+      ]);
+
+      final allCampaigns = [...results[0], ...results[1]];
+
       setState(() {
-        _campaignsCount = campaigns.length;
-        _volunteerHours = campaigns.fold(0, (sum, campaign) => sum + campaign.durationInHours);
+        _campaignsCount = allCampaigns.length;
+        _volunteerHours = allCampaigns.fold(0, (sum, campaign) => sum + campaign.durationInHours);
       });
     } catch (e) {
       // print('Грешка при зареждане на броя кампании: $e');
@@ -55,10 +61,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final VolunteerUser? authUser = Provider.of<VolunteerUser?>(context);
+    final VolunteerUser? volunteer = Provider.of<VolunteerUser?>(context);
 
     // If volunteer is null, show a screen indicating the error
-    if (authUser == null) {
+    if (volunteer == null) {
       return Scaffold(
         backgroundColor: backgroundGrey,
         body: Center(
@@ -70,28 +76,13 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
     
-    final DatabaseService dbService = DatabaseService(uid: authUser.uid);
     final bool isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
 
     return Scaffold(
       backgroundColor: backgroundGrey,
       body: isGuest 
-        // Show temporary guest profile
-        ? _buildProfileContent(
-            VolunteerUser.forAuth(uid: authUser.uid)
-          ) :
-        // Show actual profile data from Firestore
-        StreamBuilder<VolunteerUser> (
-          stream: dbService.volunteerUserData,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return Center(child: Loading());
-            }
-
-            final VolunteerUser volunteer = snapshot.data!;          
-            return _buildProfileContent(volunteer);
-          }
-        )
+        ? _buildProfileContent(VolunteerUser.forAuth(uid: volunteer.uid))
+        : _buildProfileContent(volunteer),
     );
   }
 
