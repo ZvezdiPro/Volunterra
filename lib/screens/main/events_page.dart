@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/screens/main/create_campaign.dart';
+import 'package:volunteer_app/screens/main/helper_screens/campaigns_map.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/widgets/campaign_list.dart';
@@ -252,6 +253,28 @@ class _EventsPageState extends State<EventsPage> {
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: [
+                                // Show the campaigns on a map
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: ActionChip(
+                                    label: const Text("Карта"),
+                                    avatar: const Icon(Icons.map, color: Colors.white, size: 18),
+                                    backgroundColor: blueSecondary.withAlpha(200),
+                                    labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CampaignsMapScreen(
+                                            campaigns: filteredCampaigns, 
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+
                                 // Show All Filter
                                 Padding(
                                   padding: const EdgeInsets.only(right: 8.0),
@@ -367,7 +390,7 @@ class _EventsPageState extends State<EventsPage> {
                                   ),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
                                   showCheckmark: false,
-                                ),
+                                ),                                
                               ]
                             )
                           ),
