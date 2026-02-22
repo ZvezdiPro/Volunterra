@@ -150,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _initializeData(snapshot.data!);
           
             return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: backgroundGrey,
 
             // Edit Profile App Bar
             appBar: AppBar(
@@ -160,179 +160,173 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               title: const Text('Редакция на профила', style: appBarHeadingStyle),
               centerTitle: true,
-              backgroundColor: Colors.white,
+              backgroundColor: backgroundGrey,
               elevation: 0,
             ),
 
-            body: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Form(
-                      key: _formKey,
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Profile picture and change button
+                    Center(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Profile picture and change button
-                          Center(
-                            child: Column(
-                              children: [
-                                Stack(
-                                  alignment: Alignment.bottomRight,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 50,
-                                      backgroundColor: Colors.grey[200],
-                                      backgroundImage: _newAvatarUrl != null
-                                        ? NetworkImage(_newAvatarUrl!)
-                                        : (widget.volunteer.avatarUrl != null && widget.volunteer.avatarUrl!.isNotEmpty)
-                                            ? NetworkImage(widget.volunteer.avatarUrl!)
-                                            : const AssetImage('assets/images/profile_placeholder.png') as ImageProvider,
-                                      child: _isUploadingImage
-                                        ? const CircularProgressIndicator(color: greenPrimary)
-                                        : null,
-                                    ),
-                                    if (!_isUploadingImage)
-                                      GestureDetector(
-                                        onTap: _handlePhotoChange,
-                                        child: const CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor: greenPrimary,
-                                          child: Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                TextButton(
-                                  onPressed: _isUploadingImage ? null : _handlePhotoChange,
-                                  child: Text(
-                                    _isUploadingImage ? 'Качване...' : 'Смени снимката',
-                                    style: const TextStyle(color: greenPrimary, fontWeight: FontWeight.bold),
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              CircleAvatar(
+                                radius: 50,
+                                backgroundColor: Colors.grey[200],
+                                backgroundImage: _newAvatarUrl != null
+                                  ? NetworkImage(_newAvatarUrl!)
+                                  : (widget.volunteer.avatarUrl != null && widget.volunteer.avatarUrl!.isNotEmpty)
+                                      ? NetworkImage(widget.volunteer.avatarUrl!)
+                                      : const AssetImage('assets/images/profile_placeholder.png') as ImageProvider,
+                                child: _isUploadingImage
+                                  ? const CircularProgressIndicator(color: greenPrimary)
+                                  : null,
+                              ),
+                              if (!_isUploadingImage)
+                                GestureDetector(
+                                  onTap: _handlePhotoChange,
+                                  child: const CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: greenPrimary,
+                                    child: Icon(Icons.camera_alt, color: Colors.white, size: 16),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 25),
-
-                          // First and Last Name inputs
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField('Първо име', _firstNameController)),
-                              const SizedBox(width: 15),
-                              Expanded(child: _buildTextField('Фамилия', _lastNameController)),
                             ],
                           ),
-                          const SizedBox(height: 25),
-
-                          // Bio input
-                          const Text('Кратка биография', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _bioController,
-                            maxLines: 4,
-                            maxLength: 300,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade200),
-                              ),
+                          TextButton(
+                            onPressed: _isUploadingImage ? null : _handlePhotoChange,
+                            child: Text(
+                              _isUploadingImage ? 'Качване...' : 'Смени снимката',
+                              style: const TextStyle(color: greenPrimary, fontWeight: FontWeight.bold),
                             ),
                           ),
-                          const SizedBox(height: 10),
-
-                          // Interests selection
-                          const Text('Интереси', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Изберете до 5 области, в които искате да помагате:',
-                            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                          ),
-                          const SizedBox(height: 15),
-
-                          // The list of selectable interests
-                          Wrap(
-                            spacing: 8.0,
-                            runSpacing: 8.0,
-                            children: availableInterests.map((interest) {
-                              final isSelected = _interests.contains(interest);
-                              return FilterChip(
-                                label: Text(interest),
-                                selected: isSelected,
-                                backgroundColor: Colors.grey[50],
-                                selectedColor: greenPrimary,
-                                showCheckmark: true,
-                                checkmarkColor: Colors.white,
-                                labelStyle: TextStyle(
-                                  fontSize: 13,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide(
-                                    color: isSelected ? greenPrimary : Colors.grey.shade300,
-                                  ),
-                                ),
-                                onSelected: (bool selected) {
-                                  setState(() {
-                                    if (selected) {
-                                      if (_interests.length < 5) {
-                                        _interests.add(interest);
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Можете да изберете до 5 интереса!'),
-                                            backgroundColor: greenPrimary,
-                                            duration: Duration(seconds: 2),
-                                          ),
-                                        );
-                                      }
-                                    } else {
-                                      _interests.remove(interest);
-                                    }
-                                  });
-                                },
-                              );
-                            }).toList(),
-                          ),
-                          
-                          const SizedBox(height: 30),
                         ],
                       ),
                     ),
-                  ),
-                ),
-
-                // Save Changes button
-                SafeArea(
-                  top: false,
-                  bottom: true,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: greenPrimary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
+                    const SizedBox(height: 25),
+            
+                    // First and Last Name inputs
+                    Row(
+                      children: [
+                        Expanded(child: _buildTextField('Първо име', _firstNameController)),
+                        const SizedBox(width: 15),
+                        Expanded(child: _buildTextField('Фамилия', _lastNameController)),
+                      ],
+                    ),
+                    const SizedBox(height: 25),
+            
+                    // Bio input
+                    const Text('Кратка биография', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _bioController,
+                      maxLines: 4,
+                      maxLength: 300,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.grey[50],
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
-                        onPressed: _saveChanges,
-                        child: const Text('Запази промените', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 10),
+            
+                    // Interests selection
+                    const Text('Интереси', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Изберете до 5 области, в които искате да помагате:',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 15),
+            
+                    // The list of selectable interests
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: availableInterests.map((interest) {
+                        final isSelected = _interests.contains(interest);
+                        return FilterChip(
+                          label: Text(interest),
+                          selected: isSelected,
+                          backgroundColor: Colors.grey[50],
+                          selectedColor: greenPrimary,
+                          showCheckmark: true,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            fontSize: 13,
+                            color: isSelected ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSelected ? greenPrimary : Colors.grey.shade300,
+                            ),
+                          ),
+                          onSelected: (bool selected) {
+                            setState(() {
+                              if (selected) {
+                                if (_interests.length < 5) {
+                                  _interests.add(interest);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Можете да изберете до 5 интереса!'),
+                                      backgroundColor: greenPrimary,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                _interests.remove(interest);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
+
+            // Save changes button
+            bottomNavigationBar: SafeArea(
+              top: false,
+              bottom: true,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: greenPrimary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    onPressed: _saveChanges,
+                    child: const Text('Запази промените', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
-              ],
+              ),
             ),
           );
         }

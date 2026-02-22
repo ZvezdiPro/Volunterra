@@ -254,7 +254,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
         // AppBar with the Title and Save button
         appBar: AppBar(
           title: const Text("Админ Панел", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.white,
+          backgroundColor: backgroundGrey,
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.black87),
           actions: [
@@ -374,7 +374,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                   side: const BorderSide(color: Colors.redAccent)
                 ),
                 onPressed: _confirmEndCampaign,
-                child: const Text("Прекрати Кампанията", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                child: const Text("Прекрати кампанията", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               ),
             ),
           ),

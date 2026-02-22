@@ -192,7 +192,7 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
           SliverToBoxAdapter(
             child: Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: backgroundGrey,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Padding(
