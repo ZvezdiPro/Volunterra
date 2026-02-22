@@ -66,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 StreamBuilder<List<Campaign>>(
                   stream: _dbService.campaigns,
                   builder: (context, campaignSnapshot) {
-                    if (campaignSnapshot.connectionState == ConnectionState.waiting) {
+                    if (campaignSnapshot.connectionState == ConnectionState.waiting && !campaignSnapshot.hasData) {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: 40.0),
                         child: Center(child: CircularProgressIndicator(color: greenPrimary)),
@@ -108,17 +108,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     // If there are more than 1 active campaigns which the user's interested in
                     // pick a random one from the remaining list (excluding the latest)
                     Campaign? recommendedCampaign;
-                    if (activeCampaigns.length > 1) {
-                      List<Campaign> remainingCampaigns = activeCampaigns.sublist(1);
-                      List<Campaign> matchingCampaigns = remainingCampaigns.where((campaign) {
+
+                    // Filter out campaigns the user is already registered for and the latest campaign
+                    List<Campaign> eligibleCampaigns = activeCampaigns.where((campaign) {
+                      if (campaign.id == latestCampaign.id) return false;
+                      bool isAlreadyRegistered = campaign.registeredVolunteersUids.contains(_currentUid);
+                      return !isAlreadyRegistered;
+                    }).toList();
+
+                    if (eligibleCampaigns.isNotEmpty) {
+                      List<Campaign> matchingCampaigns = eligibleCampaigns.where((campaign) {
                         return campaign.categories.any((category) => userInterests.contains(category));
                       }).toList();
                       if (matchingCampaigns.isNotEmpty) {
-                        // If there are campaigns matching the user's interests, pick a random one from that list
+                        // If there are campaigns matching the user's interests which they haven't registered for, pick a random one from that list
                         recommendedCampaign = matchingCampaigns[Random().nextInt(matchingCampaigns.length)];
                       } else {
                         // Otherwise, just pick a random campaign from the remaining active campaigns
-                        recommendedCampaign = remainingCampaigns[Random().nextInt(remainingCampaigns.length)];
+                        recommendedCampaign = eligibleCampaigns[Random().nextInt(eligibleCampaigns.length)];
                       }
                     }
 
@@ -171,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
               ],
             ),
           );
@@ -372,7 +379,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          // Разделителна линия между събитията
           if (!isLast)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),

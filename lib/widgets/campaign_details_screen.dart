@@ -116,235 +116,240 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
 
   Scaffold _buildPage(BuildContext context, VolunteerUser user, {required bool isBookmarked, required bool isGuest}) {
     bool hasImage = widget.campaign.imageUrl.isNotEmpty;
+    Widget? bottomButton = widget.showRegisterButton ? _buildBottomButton(user, isGuest) : null;
 
     return Scaffold(
       backgroundColor: backgroundGrey,
-      bottomNavigationBar: _buildBottomButton(user, isGuest),
+      bottomNavigationBar: bottomButton,
       
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: hasImage ? 250.0 : null,
-            pinned: true,
-            backgroundColor: backgroundGrey,
-            elevation: 0,
-            centerTitle: true,
-            
-            // Back button
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(200),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-            
-            // Save button
-            actions: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: hasImage ? 250.0 : null,
+              pinned: true,
+              backgroundColor: backgroundGrey,
+              elevation: 0,
+              centerTitle: true,
+              
+              // Back button
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(200),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: Icon(
-                      isBookmarked ? Icons.bookmark : Icons.bookmark_border, 
-                      color: isBookmarked ? blueSecondary : Colors.black,
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ),
+              
+              // Save button
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(200),
+                      shape: BoxShape.circle,
                     ),
-                    onPressed: () {
-                      if (isGuest) {
-                        _showGuestActionMessage(context);
-                      } else {
-                        _onBookmarkTap(context, user, isBookmarked);
-                      }
-                    },
+                    child: IconButton(
+                      icon: Icon(
+                        isBookmarked ? Icons.bookmark : Icons.bookmark_border, 
+                        color: isBookmarked ? blueSecondary : Colors.black,
+                      ),
+                      onPressed: () {
+                        if (isGuest) {
+                          _showGuestActionMessage(context);
+                        } else {
+                          _onBookmarkTap(context, user, isBookmarked);
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ],
-            
-            // Flexible space with image or title
-            flexibleSpace: hasImage ? FlexibleSpaceBar(
-              background: Image.network(
-                widget.campaign.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey[300],
-                  child: const Center(
-                    child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              ],
+              
+              // Flexible space with image or title
+              flexibleSpace: hasImage ? FlexibleSpaceBar(
+                background: Image.network(
+                  widget.campaign.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.grey[300],
+                    child: const Center(
+                      child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                    ),
                   ),
                 ),
+              ) : const FlexibleSpaceBar(
+                centerTitle: true,
+                title: Text('Детайли за кампанията', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22)),
               ),
-            ) : const FlexibleSpaceBar(
-              centerTitle: true,
-              title: Text('Детайли за кампанията', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22)),
             ),
-          ),
-      
-          SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: backgroundGrey,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Campaign title
-                    Center(
-                      child: Text(
-                        widget.campaign.title,
-                        style: mainHeadingStyle.copyWith(fontSize: 24),
-                        textAlign: TextAlign.center,
+        
+            SliverToBoxAdapter(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: backgroundGrey,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Campaign title
+                      Center(
+                        child: Text(
+                          widget.campaign.title,
+                          style: mainHeadingStyle.copyWith(fontSize: 24),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
-      
-                    const SizedBox(height: 15),
-      
-                    // Location section
-                    Card(
-                      elevation: 2,
-                      color: backgroundGrey,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withAlpha(30),
-                                    borderRadius: BorderRadius.circular(10),
+        
+                      const SizedBox(height: 15),
+        
+                      // Location section
+                      Card(
+                        elevation: 2,
+                        color: backgroundGrey,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withAlpha(30),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.location_on, color: Colors.blue, size: 30),
                                   ),
-                                  child: const Icon(Icons.location_on, color: Colors.blue, size: 30),
-                                ),
-                                const SizedBox(width: 15),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text("Локация", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                      Text(
-                                        widget.campaign.location,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
+                                  const SizedBox(width: 15),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Локация", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                        Text(
+                                          widget.campaign.location,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                onPressed: () => _openMap(widget.campaign.latitude, widget.campaign.longitude),
-                                icon: const Icon(Icons.map_outlined),
-                                label: const Text("Виж на картата"),
+                                ],
                               ),
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-      
-                    const SizedBox(height: 20),
-      
-                    // Date section (start/end)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildInfoDateCard(
-                            icon: Icons.calendar_today_outlined,
-                            color: greenPrimary,
-                            title: "Начало",
-                            date: _formatDate(widget.campaign.startDate),
-                            time: _formatTime(widget.campaign.startDate),
+                              const SizedBox(height: 15),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                  onPressed: () => _openMap(widget.campaign.latitude, widget.campaign.longitude),
+                                  icon: const Icon(Icons.map_outlined),
+                                  label: const Text("Виж на картата"),
+                                ),
+                              )
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _buildInfoDateCard(
-                            icon: Icons.event_available_outlined,
-                            color: Colors.orange,
-                            title: "Край",
-                            date: _formatDate(widget.campaign.endDate),
-                            time: _formatTime(widget.campaign.endDate),
+                      ),
+        
+                      const SizedBox(height: 20),
+        
+                      // Date section (start/end)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildInfoDateCard(
+                              icon: Icons.calendar_today_outlined,
+                              color: greenPrimary,
+                              title: "Начало",
+                              date: _formatDate(widget.campaign.startDate),
+                              time: _formatTime(widget.campaign.startDate),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-      
-                    const SizedBox(height: 20),
-      
-                    // Volunteer progress card
-                    _buildVolunteersCard(widget.campaign),
-      
-                    const SizedBox(height: 25),
-      
-                    // Description
-                    const Text("За кампанията", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: backgroundGrey.withAlpha(100),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: blueSecondary.withAlpha(50)),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: _buildInfoDateCard(
+                              icon: Icons.event_available_outlined,
+                              color: Colors.orange,
+                              title: "Край",
+                              date: _formatDate(widget.campaign.endDate),
+                              time: _formatTime(widget.campaign.endDate),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        widget.campaign.description,
-                        style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
-                      ),
-                    ),
-      
-                    const SizedBox(height: 25),
-      
-                    // Instructions (if any)
-                    if (widget.campaign.instructions.isNotEmpty) ...[
-                      const Text("Инструкции", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        
+                      const SizedBox(height: 20),
+        
+                      // Volunteer progress card
+                      _buildVolunteersCard(widget.campaign),
+        
+                      const SizedBox(height: 25),
+        
+                      // Description
+                      const Text("За кампанията", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withAlpha(15),
+                          color: backgroundGrey.withAlpha(100),
                           borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: Colors.orange.withAlpha(100)),
+                          border: Border.all(color: blueSecondary.withAlpha(50)),
                         ),
                         child: Text(
-                          widget.campaign.instructions,
-                          style: TextStyle(fontSize: 15, height: 1.5, color: Colors.brown[900]),
+                          widget.campaign.description,
+                          style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.black87),
                         ),
                       ),
-                      const SizedBox(height: 30),
+        
+                      const SizedBox(height: 25),
+        
+                      // Instructions (if any)
+                      if (widget.campaign.instructions.isNotEmpty) ...[
+                        const Text("Инструкции", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withAlpha(15),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: Colors.orange.withAlpha(100)),
+                          ),
+                          child: Text(
+                            widget.campaign.instructions,
+                            style: TextStyle(fontSize: 15, height: 1.5, color: Colors.brown[900]),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -440,8 +445,6 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
     bool isAlreadyRegistered = widget.campaign.registeredVolunteersUids.contains(user.uid);
     bool isEnded = widget.campaign.status == 'ended' || widget.campaign.endDate.isBefore(DateTime.now());
     bool isOrganizer = widget.campaign.organizerId == user.uid;
-
-    if (!widget.showRegisterButton) return const SizedBox.shrink();
 
     return SafeArea(
       child: Container(
