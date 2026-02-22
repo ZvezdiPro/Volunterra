@@ -67,6 +67,7 @@ dependencies:
   google_maps_flutter: ^2.14.0
   geocoding: ^4.0.0
   geolocator: ^14.0.2
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -83,6 +84,11 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+
 flutter:
 
   # The following line ensures that the Material Icons font is

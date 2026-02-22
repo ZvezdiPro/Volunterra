@@ -23,7 +23,7 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       // Appbar at the top
       appBar: AppBar(
-        title: Text('Основна страница', style: TextStyle(color: greenPrimary, fontSize: 24.0, fontWeight: FontWeight.bold)),
+        title: Text('Volunteer Varna', style: TextStyle(color: greenPrimary, fontSize: 24.0, fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: backgroundGrey,
         elevation: 1.0,
@@ -39,13 +39,22 @@ class _MainPageState extends State<MainPage> {
       ),
 
       // The four pages to navigate between
-      body: <Widget>
-      [
-        HomeScreen(),
-        EventsPage(),
-        ChatsScreen(),
-        ProfilePage(),
-      ][currentPageIndex],
+      body: IndexedStack(
+        index: currentPageIndex,
+        children: [
+          HomeScreen(
+            onGoToEvents: () {
+              setState(() {
+                // EventsPage index is 1
+                currentPageIndex = 1;
+              });
+            },
+          ),
+          const EventsPage(), 
+          const ChatsScreen(),
+          const ProfilePage(),
+        ],
+      ),
 
       // Navigation bar at the bottom
       bottomNavigationBar: NavigationBar(destinations: 

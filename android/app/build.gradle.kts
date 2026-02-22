@@ -2,14 +2,11 @@ import java.util.Properties
 import org.gradle.api.Project
 
 fun getLocalProperties(rootProject: Project): Properties {
-    // 1. We no longer need 'java.util' due to the import
     val localProperties = Properties()
 
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
         localPropertiesFile.inputStream().use { inputStream ->
-            // 2. We call load() on the localProperties object explicitly,
-            //    rather than relying on an implicit receiver.
             localProperties.load(inputStream)
         }
     }
@@ -37,12 +34,12 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
