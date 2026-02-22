@@ -76,8 +76,8 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
 
   @override
   Widget build(BuildContext context) {
-    final DateFormat dateFormatter = DateFormat('dd MMM yyyy');
-    final DateFormat timeFormatter = DateFormat('HH:mm');
+    final DateFormat dateFormatter = DateFormat('dd MMM yyyy', 'bg_BG');
+    final DateFormat timeFormatter = DateFormat('HH:mm', 'bg_BG');
 
     final List<String> availableCategories = [
     'Образование', 'Екология', 'Животни', 'Грижа за деца', 'Спорт', 'Здраве',

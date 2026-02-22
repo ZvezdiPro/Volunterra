@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/screens/main/create_campaign.dart';
+import 'package:volunteer_app/screens/main/helper_screens/campaigns_map.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/widgets/campaign_list.dart';
@@ -23,6 +24,7 @@ class _EventsPageState extends State<EventsPage> {
   final List<String> _selectedCategories = [];
   DateTime? _selectedDate;
   bool _showSavedOnly = false;
+  bool _showAll = false;
 
   final List<String> _categories = [
     'Образование', 'Екология', 'Животни', 'Грижа за деца', 'Спорт', 'Здраве',
@@ -57,7 +59,7 @@ class _EventsPageState extends State<EventsPage> {
     }
   }
 
-  void _openCategoryFilter() {
+  void _openCategoryFilter(VolunteerUser? user) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -75,18 +77,39 @@ class _EventsPageState extends State<EventsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: const Text("Изберете категории", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8.0),
+                        child: Text("Категории", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          setModalState(() {
-                            _selectedCategories.clear();
-                          });
-                          setState(() {});
-                        },
-                        child: const Text("Изчисти", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      
+                      Row(
+                        children: [
+                          // Show "My Interests" button only if user is logged in and has interests
+                          if (user != null && !_auth.currentUser!.isAnonymous)
+                            TextButton.icon(
+                              icon: const Icon(Icons.person, size: 16, color: greenPrimary),
+                              label: const Text("Моите интереси", style: TextStyle(color: greenPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                              onPressed: () {
+                                setModalState(() {
+                                  _selectedCategories.clear();
+                                  final myInterests = user.interests
+                                      .where((interest) => _categories.contains(interest));
+                                  _selectedCategories.addAll(myInterests);
+                                });
+                                setState(() {});
+                              },
+                            ),
+
+                          TextButton(
+                            onPressed: () {
+                              setModalState(() {
+                                _selectedCategories.clear();
+                              });
+                              setState(() {});
+                            },
+                            child: const Text("Изчисти", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 14)),
+                          ),
+                        ],
                       )
                     ],
                   ),
@@ -129,9 +152,9 @@ class _EventsPageState extends State<EventsPage> {
   Widget build(BuildContext context) {
     final userUid = _auth.currentUser?.uid;
     
-    return StreamProvider<List<Campaign>>.value(
+    return StreamProvider<List<Campaign>?>.value(
       value: DatabaseService().campaigns,
-      initialData: const [],
+      initialData: null,
       child: Scaffold(
         backgroundColor: backgroundGrey,
         
@@ -139,10 +162,22 @@ class _EventsPageState extends State<EventsPage> {
           stream: DatabaseService(uid: userUid).volunteerUserData,
           builder: (context, userSnapshot) {
             VolunteerUser? user = userSnapshot.data;
-            return Consumer<List<Campaign>>(
+            return Consumer<List<Campaign>?>(
               builder: (context, allCampaigns, child) {
+                if (allCampaigns == null) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: greenPrimary, 
+                    ),
+                  );
+                }
+
                 // Filter the campaigns based on the search query
                 List<Campaign> filteredCampaigns = allCampaigns.where((campaign) {
+                  if (!_showAll) {
+                    if (campaign.status == 'ended') return false;
+                    if (campaign.endDate.isBefore(DateTime.now())) return false; 
+                  }
                   // Searching by name
                   final matchesSearch = campaign.title.toLowerCase().contains(_searchQuery.toLowerCase());
 
@@ -218,6 +253,50 @@ class _EventsPageState extends State<EventsPage> {
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: [
+                                // Show the campaigns on a map
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: ActionChip(
+                                    label: const Text("Карта"),
+                                    avatar: const Icon(Icons.map, color: Colors.white, size: 18),
+                                    backgroundColor: blueSecondary.withAlpha(200),
+                                    labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CampaignsMapScreen(
+                                            campaigns: filteredCampaigns, 
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                                // Show All Filter
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: FilterChip(
+                                    label: const Text("Всички"),
+                                    selected: _showAll,
+                                    onSelected: (val) {
+                                      setState(() {
+                                        _showAll = val;
+                                      });
+                                    },
+                                    backgroundColor: Colors.white,
+                                    selectedColor: greenPrimary.withAlpha(30),
+                                    labelStyle: TextStyle(
+                                      color: _showAll ? greenPrimary : Colors.black,
+                                      fontWeight: _showAll ? FontWeight.bold : FontWeight.normal
+                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
+                                    showCheckmark: false,
+                                  ),
+                                ),
+
                                 // Category filter
                                 Padding(
                                   padding: const EdgeInsets.only(right: 8.0),
@@ -232,7 +311,7 @@ class _EventsPageState extends State<EventsPage> {
                                       ],
                                     ),
                                     selected: _selectedCategories.isNotEmpty,
-                                    onSelected: (_) => _openCategoryFilter(),
+                                    onSelected: (_) => _openCategoryFilter(user),
                                     backgroundColor: Colors.white,
                                     selectedColor: greenPrimary.withAlpha(50),
                                     labelStyle: TextStyle(
@@ -311,7 +390,7 @@ class _EventsPageState extends State<EventsPage> {
                                   ),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide.none),
                                   showCheckmark: false,
-                                ),
+                                ),                                
                               ]
                             )
                           ),
@@ -321,12 +400,49 @@ class _EventsPageState extends State<EventsPage> {
             
                     // List of campaigns
                     Expanded(
-                      child: Provider<List<Campaign>>.value(
-                        value: filteredCampaigns,
-                        child: !_auth.currentUser!.isAnonymous
-                          ? CampaignList()
-                          : CampaignList(showRegisterButton: false),
-                      ),
+                      child: filteredCampaigns.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(30.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.event_busy,
+                                    size: 75,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    "В момента няма активни кампании.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    _searchQuery.isNotEmpty || _selectedCategories.isNotEmpty || _selectedDate != null
+                                        ? "Опитайте да промените критериите за търсене."
+                                        : "Моля, вижте отново по-късно или създайте нова кампания.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : Provider<List<Campaign>>.value(
+                            value: filteredCampaigns,
+                            child: !_auth.currentUser!.isAnonymous
+                              ? CampaignList()
+                              : CampaignList(showRegisterButton: false),
+                          ),
                     ),
                   ],
                 );

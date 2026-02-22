@@ -26,6 +26,8 @@ class _SignInState extends State<SignIn> {
   String password = '';
   String error = '';
 
+  bool _isPasswordVisible = false;
+
   @override
   Widget build(BuildContext context) {
     return loading ? Loading() : Scaffold(
@@ -58,11 +60,23 @@ class _SignInState extends State<SignIn> {
 
                 // Password input
                 TextFormField(
-                  decoration: textInputDecoration.copyWith(hintText: 'Парола'),
-                  obscureText: true,
+                  decoration: textInputDecoration.copyWith(
+                    hintText: 'Парола',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: greenPrimary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: !_isPasswordVisible,
                   validator: (val) => val!.length < 6 ? 'Въведете парола с най-малко 6 знака' : null,
                   onChanged: (val) {
-                    // Handle password input change
                     setState(() {
                       password = val;
                     });

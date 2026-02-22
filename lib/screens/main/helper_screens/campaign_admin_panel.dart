@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/screens/main/helper_screens/public_profile_screen.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/shared/constants.dart';
@@ -253,7 +254,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
         // AppBar with the Title and Save button
         appBar: AppBar(
           title: const Text("Админ Панел", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.white,
+          backgroundColor: backgroundGrey,
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.black87),
           actions: [
@@ -331,6 +332,15 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                         icon: const Icon(Icons.person_remove_outlined, color: Colors.redAccent),
                         onPressed: () => _confirmRemoveVolunteer(user),
                       ),
+                      // Push a public profile screen
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PublicProfileScreen(volunteer: user),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -364,7 +374,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                   side: const BorderSide(color: Colors.redAccent)
                 ),
                 onPressed: _confirmEndCampaign,
-                child: const Text("Прекрати Кампанията", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                child: const Text("Прекрати кампанията", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               ),
             ),
           ),

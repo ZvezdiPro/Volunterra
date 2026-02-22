@@ -3,19 +3,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Campaign {
   final String id;
   final String organizerId;
+
+  // Basic info
   final String title;
   final String description;
+
+  // Location related fields
+  // Automatically filled upon choosing a location on the map
   final String location;
+  final double latitude;
+  final double longitude;
+
   final String instructions; // Not required
   final int requiredVolunteers;
   final DateTime startDate;
   final DateTime endDate;
-  final String imageUrl;
+  final String imageUrl; // Optional image upload
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> categories;
   final List<String> registeredVolunteersUids;
-  final String status;
+  final String status; // "active" by default
 
   Campaign({
     required this.id,
@@ -23,6 +32,8 @@ class Campaign {
     required this.title,
     required this.description,
     required this.location,
+    required this.latitude,
+    required this.longitude,
     required this.requiredVolunteers,
     required this.startDate,
     required this.endDate,
@@ -45,6 +56,8 @@ class Campaign {
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       location: data['location'] ?? '',
+      latitude: (data['latitude'] ?? 43.217152).toDouble(), 
+      longitude: (data['longitude'] ?? 27.939351).toDouble(),
       instructions: data['instructions'] ?? '',
       requiredVolunteers: data['requiredVolunteers'] ?? 0,
       startDate: data['startDate'] != null ? (data['startDate'] as Timestamp).toDate() : DateTime.now(),

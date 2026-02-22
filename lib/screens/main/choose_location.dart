@@ -89,67 +89,69 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Избери локация', style: TextStyle(color: Colors.white)),
+        title: Text('Избери локация', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
         backgroundColor: greenPrimary,
         iconTheme: IconThemeData(color: Colors.white),
       ),
-      body: Stack(
-        children: [
-          // The Map
-          GoogleMap(
-            padding: EdgeInsets.only(bottom: 90.0),
-            initialCameraPosition: CameraPosition(
-              target: _currentCenter,
-              zoom: 15,
-            ),
-            onMapCreated: (controller) => _mapController = controller,
-            onCameraMove: _onCameraMove,
-            myLocationEnabled: true, // Shows blue dot if permission is granted
-            myLocationButtonEnabled: true,
-            mapToolbarEnabled: false, // Hides the "Open in Maps" buttons
-          ),
-
-          // The Pin (Always in the center)
-          Center(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 40.0),
-              child: Icon(
-                Icons.location_on, 
-                size: 50, 
-                color: Colors.redAccent
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // The Map
+            GoogleMap(
+              padding: EdgeInsets.only(bottom: 90.0),
+              initialCameraPosition: CameraPosition(
+                target: _currentCenter,
+                zoom: 15,
               ),
+              onMapCreated: (controller) => _mapController = controller,
+              onCameraMove: _onCameraMove,
+              myLocationEnabled: true, // Shows blue dot if permission is granted
+              myLocationButtonEnabled: true,
+              mapToolbarEnabled: false, // Hides the "Open in Maps" buttons
             ),
-          ),
-
-          // The "Pick Here" Button
-          Positioned(
-            bottom: 30,
-            left: 20,
-            right: 20,
-            child: SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoadingAddress ? null : _pickLocation,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: greenPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+        
+            // The Pin (Always in the center)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 40.0),
+                child: Icon(
+                  Icons.location_on, 
+                  size: 50, 
+                  color: Colors.redAccent
                 ),
-                child: _isLoadingAddress 
-                  ? SizedBox(
-                      height: 24, 
-                      width: 24, 
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                    )
-                  : Text(
-                      'Потвърди локацията', 
-                      style: TextStyle(fontSize: 18, color: Colors.white)
-                    ),
               ),
             ),
-          ),
-        ],
+        
+            // The "Pick Here" Button
+            Positioned(
+              bottom: 30,
+              left: 20,
+              right: 20,
+              child: SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoadingAddress ? null : _pickLocation,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: greenPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: _isLoadingAddress 
+                    ? SizedBox(
+                        height: 24, 
+                        width: 24, 
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                      )
+                    : Text(
+                        'Потвърди локацията', 
+                        style: TextStyle(fontSize: 18, color: Colors.white)
+                      ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

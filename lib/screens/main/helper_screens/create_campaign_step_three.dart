@@ -52,7 +52,7 @@ class _CreateCampaignStepThreeState extends State<CreateCampaignStepThree> {
       // Upload to Firebase Storage
       String uniquePath = 'campaign_uploads/${DateTime.now().millisecondsSinceEpoch}';
       
-      String? downloadUrl = await DatabaseService().uploadImage(uniquePath, pickedFile);
+      String? downloadUrl = await DatabaseService().uploadImage(uniquePath, pickedFile, null);
 
       if (!mounted) return;
       
