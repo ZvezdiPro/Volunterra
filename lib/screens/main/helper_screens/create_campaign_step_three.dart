@@ -44,6 +44,19 @@ class _CreateCampaignStepThreeState extends State<CreateCampaignStepThree> {
       
       if (pickedFile == null) return;
 
+      // File size validation (max 10 MB)
+      int fileSizeInBytes = await pickedFile.length();
+      if (fileSizeInBytes > 10 * 1024 * 1024) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Снимката е твърде голяма! Максималният размер е 10 MB.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)), 
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       setState(() {
         _isUploading = true;
         _displayImage = File(pickedFile.path);
@@ -64,7 +77,7 @@ class _CreateCampaignStepThreeState extends State<CreateCampaignStepThree> {
         });
         
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Снимката е качена успешно!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Снимката е качена успешно!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)), backgroundColor: Colors.green),
         );
       } else {
         throw Exception('Upload failed');
@@ -111,6 +124,9 @@ class _CreateCampaignStepThreeState extends State<CreateCampaignStepThree> {
               validator: (val) {
                 if (val == null || val <= 0) {
                   return 'Моля, изберете поне 1 доброволец';
+                }
+                if (val > 1000) {
+                  return 'Максималният брой е 1000 доброволци';
                 }
                 return null;
               },

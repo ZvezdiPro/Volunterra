@@ -77,6 +77,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _handlePhotoChange() async {
     try {
+      final int maxImageSize = 5 * 1024 * 1024;
+
       // If the user decides to upload a new photo, we delete the old one
       String? urlToDelete = _newAvatarUrl ?? widget.volunteer.avatarUrl;
 
@@ -86,6 +88,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       
       if (pickedFile == null) return;
+
+      final int fileSize = await pickedFile.length();
+
+      if (fileSize > maxImageSize) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Избраната снимка е прекалено голяма!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
       
       if (!mounted) return;
 

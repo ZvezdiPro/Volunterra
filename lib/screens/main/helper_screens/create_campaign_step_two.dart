@@ -21,7 +21,6 @@ class CreateCampaignStepTwo extends StatefulWidget {
 
 class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
 
-  // The keys check the validity of the individual fields and provide immediate feedback
   final GlobalKey<FormFieldState> _startDateKey = GlobalKey<FormFieldState>();
   final GlobalKey<FormFieldState> _startTimeKey = GlobalKey<FormFieldState>();
   final GlobalKey<FormFieldState> _endDateKey = GlobalKey<FormFieldState>();
@@ -34,24 +33,20 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
   @override
   void initState() {
     super.initState();
-    // Initialize the controller with existing data (if any)
     _locationController = TextEditingController(text: widget.data.location);
   }
 
   @override
   void dispose() {
-    // Clean up the controller
     _locationController.dispose();
     super.dispose();
   }
 
   Future<void> _selectLocationOnMap() async {
-    // Navigate to MapPicker and wait for result
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => MapPickerScreen(
-          // Pass current coordinates if they exist, so the map opens there
           initialLat: widget.data.latitude,
           initialLng: widget.data.longitude,
         ),
@@ -60,16 +55,12 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
 
     if (result != null && result is Map) {
       setState(() {
-        // Update Data Model
         widget.data.latitude = result['latitude'];
         widget.data.longitude = result['longitude'];
         widget.data.location = result['address'];
-        
-        // Update the UI Text Field
         _locationController.text = result['address'];
       });
 
-      // Trigger validation to remove any "Field is required" errors
       _locationKey.currentState?.validate();
     }
   }
@@ -80,9 +71,9 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
     final DateFormat timeFormatter = DateFormat('HH:mm', 'bg_BG');
 
     final List<String> availableCategories = [
-    'Образование', 'Екология', 'Животни', 'Грижа за деца', 'Спорт', 'Здраве',
-    'Грижа за възрастни', 'Изкуство и култура', 'Помощ в извънредни ситуации'
-  ];
+      'Образование', 'Екология', 'Животни', 'Грижа за деца', 'Спорт', 'Здраве',
+      'Грижа за възрастни', 'Изкуство и култура', 'Помощ в извънредни ситуации'
+    ];
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(left: 50.0, right: 50.0, top: 40.0, bottom: MediaQuery.of(context).viewInsets.bottom + 20),
@@ -90,23 +81,20 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
         key: widget.formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-
           children: <Widget>[
-            // Page title
             Text(
               'Стъпка 2: Подробности за кампанията',
               style: mainHeadingStyle,
               textAlign: TextAlign.center,
             ),
             
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
 
-            // Start of the Campaign input
+            // Campaign Start
             Text('Начало на кампанията', style: textFormFieldHeading),
-            SizedBox(height: 10.0),
+            const SizedBox(height: 10.0),
             Row(
               children: [
-                // Start Date input
                 Expanded(
                   flex: 3,
                   child: _buildDateTimePicker(
@@ -114,13 +102,12 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
                     'Дата', 
                     Icons.calendar_today, 
                     widget.data.startDate == null ? '' : dateFormatter.format(widget.data.startDate!), 
-                    () => _selectDateTime(context, true),
+                    () => _pickDateThenTime(context, true),
                     fieldKey: _startDateKey,
                     validator: (val) => widget.data.startDate == null ? 'Изберете дата' : null,
                   ),
                 ),
-                SizedBox(width: 15),
-                // Start hour input
+                const SizedBox(width: 15),
                 Expanded(
                   flex: 2,
                   child: _buildDateTimePicker(
@@ -128,7 +115,7 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
                     'Час', 
                     Icons.access_time, 
                     widget.data.startDate == null ? '' : timeFormatter.format(widget.data.startDate!), 
-                    () => _updateTime(context, true),
+                    () => _pickTimeOnly(context, true),
                     fieldKey: _startTimeKey,
                     validator: (val) => widget.data.startDate == null ? 'Изберете час' : null
                   ),
@@ -136,14 +123,13 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
               ],
             ),
             
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
 
-            // Select the end date and time for the campaign
+            // Campaign End
             Text('Край на кампанията', style: textFormFieldHeading),
-            SizedBox(height: 10.0),
+            const SizedBox(height: 10.0),
             Row(
               children: [
-                // End date
                 Expanded(
                   flex: 3,
                   child: _buildDateTimePicker(
@@ -151,7 +137,7 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
                     'Дата', 
                     Icons.calendar_today, 
                     widget.data.endDate == null ? '' : dateFormatter.format(widget.data.endDate!), 
-                    () => _selectDateTime(context, false),
+                    () => _pickDateThenTime(context, false), // Извиква комбинирания метод
                     validator: (val) {
                       if (widget.data.endDate == null) return 'Изберете крайна дата';
                       if (widget.data.startDate != null && widget.data.endDate!.isBefore(widget.data.startDate!)) {
@@ -162,8 +148,7 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
                     fieldKey: _endDateKey
                   ),
                 ),
-                SizedBox(width: 15),
-                // End hour
+                const SizedBox(width: 15),
                 Expanded(
                   flex: 2,
                   child: _buildDateTimePicker(
@@ -171,7 +156,7 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
                     'Час', 
                     Icons.access_time, 
                     widget.data.endDate == null ? '' : timeFormatter.format(widget.data.endDate!), 
-                    () => _updateTime(context, false),
+                    () => _pickTimeOnly(context, false), // Извиква само час
                     validator: (val) {
                       if (widget.data.endDate == null) return 'Изберете час';
                       if (widget.data.startDate != null && widget.data.endDate!.isBefore(widget.data.startDate!)) {
@@ -185,11 +170,11 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
               ],
             ),
             
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
 
-            // Choose Location
+            // Location
             Text('Местоположение', style: textFormFieldHeading),   
-            SizedBox(height: 5.0),         
+            const SizedBox(height: 5.0),         
             TextFormField(
               key: _locationKey,
               controller: _locationController,
@@ -198,29 +183,26 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
               decoration: textInputDecoration.copyWith(
                 labelText: 'Адрес / точка на среща',
                 hintText: 'Изберете местоположение от картата',
-                suffixIcon: Icon(Icons.map, color: greenPrimary),
+                suffixIcon: const Icon(Icons.map, color: greenPrimary),
               ),
               validator: (val) => val!.isEmpty ? 'Въведете местоположение' : null,
             ),
 
-            SizedBox(height: 20.0),
+            const SizedBox(height: 20.0),
 
-            // Choose category
+            // Category
             Text('Изберете категория', style: textFormFieldHeading),
-            SizedBox(height: 5.0),
+            const SizedBox(height: 5.0),
             DropdownButtonFormField<String>(
               decoration: textInputDecoration.copyWith(
                 hintText: 'Изберете една категория',
-                suffixIcon: Icon(Icons.arrow_drop_down, color: greenPrimary),
+                suffixIcon: const Icon(Icons.arrow_drop_down, color: greenPrimary),
               ),
-              
               key: _categoryKey,
               dropdownColor: Colors.white,
               initialValue: widget.data.categories.isNotEmpty ? widget.data.categories.first : null,
               validator: (val) => val == null || val.isEmpty ? 'Моля, изберете категория.' : null,
               isExpanded: true,
-              
-              // Whenever a category is selected
               onChanged: (String? newValue) {
                 setState(() {
                   if (newValue != null) {
@@ -231,8 +213,6 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
                 });
                 _categoryKey.currentState?.validate();
               },
-
-              // Create the list of options: for every String return an option in the menu
               items: availableCategories.map<DropdownMenuItem<String>>((String category) {
                 return DropdownMenuItem<String>(
                   value: category,
@@ -246,131 +226,119 @@ class _CreateCampaignStepTwoState extends State<CreateCampaignStepTwo> {
     );
   }
 
-  // Method to update the state of the corresponding field in campaign_data
-  // and validate that the fields are correct
-  void _updateStateAndValidate(DateTime finalDateTime, bool isStart) {
+  // Pick date and time in one flow (used when user taps on date field)
+  Future<void> _pickDateThenTime(BuildContext context, bool isStart) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day); 
+
+    final initialDate = isStart 
+        ? (widget.data.startDate ?? now)
+        : (widget.data.endDate ?? (widget.data.startDate ?? now).add(const Duration(hours: 2)));
+
+    final firstDate = isStart 
+        ? today 
+        : (widget.data.startDate != null ? DateTime(widget.data.startDate!.year, widget.data.startDate!.month, widget.data.startDate!.day) : today);
+
+    // Select date first
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: now.add(const Duration(days: 365 * 2)),
+      builder: (context, child) => _buildPickerTheme(child!),
+    );
+
+    if (pickedDate == null || !context.mounted) return;
+
+    // Picking time after date is selected
+    final initialTimeDate = isStart 
+        ? (widget.data.startDate ?? now)
+        : (widget.data.endDate ?? (widget.data.startDate ?? now).add(const Duration(hours: 2)));
+
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialTimeDate),
+      builder: (context, child) => _buildPickerTheme(child!, isTimePicker: true),
+    );
+
+    if (pickedTime == null) return;
+
+    final finalDateTime = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day, 
+      pickedTime.hour, pickedTime.minute
+    );
+
+    _applyDateTimeChange(finalDateTime, isStart);
+  }
+
+  // Picking only time (used when user taps on time field directly)
+  Future<void> _pickTimeOnly(BuildContext context, bool isStart) async {
+    final baseDate = isStart 
+        ? (widget.data.startDate ?? DateTime.now()) 
+        : (widget.data.endDate ?? (widget.data.startDate ?? DateTime.now()).add(const Duration(hours: 2)));
+        
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(baseDate), 
+      builder: (context, child) => _buildPickerTheme(child!, isTimePicker: true),
+    ); 
+
+    if (pickedTime != null) {
+      final DateTime finalDateTime = DateTime(
+          baseDate.year, baseDate.month, baseDate.day, 
+          pickedTime.hour, pickedTime.minute
+      );
+
+      _applyDateTimeChange(finalDateTime, isStart);
+    }
+  }
+
+  // Universal method to apply date and time changes with validation
+  void _applyDateTimeChange(DateTime finalDateTime, bool isStart) {
     setState(() {
       if (isStart) {
         widget.data.startDate = finalDateTime;
         
-        // If the end is before the beginning, change its value to one hour after the start
-        if (widget.data.endDate != null && widget.data.endDate!.isBefore(finalDateTime)) {
-          widget.data.endDate = finalDateTime.add(Duration(hours: 1));
+        if (widget.data.endDate == null || widget.data.endDate!.isBefore(finalDateTime)) {
+          widget.data.endDate = finalDateTime.add(const Duration(hours: 2));
         }
-      }
-      else {
+      } else {
         widget.data.endDate = finalDateTime;
       }
     });
 
+    // Validation
     if (isStart) {
       _startDateKey.currentState?.validate();
       _startTimeKey.currentState?.validate();
       if (widget.data.endDate != null) {
         _endDateKey.currentState?.validate();
+        _endTimeKey.currentState?.validate();
       }
-    }
-    else {
+    } else {
       _endDateKey.currentState?.validate();
       _endTimeKey.currentState?.validate();
     }
   }
 
-  // Method to select the date
-  Future<DateTime?> _selectDate(BuildContext context, bool isStart) async {
-    final initialDateTime = isStart 
-        ? (widget.data.startDate ?? DateTime.now())
-        : (widget.data.endDate ?? (widget.data.startDate ?? DateTime.now()).add(Duration(hours: 1)));
-
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialDateTime,
-      firstDate: isStart ? DateTime.now() : (widget.data.startDate ?? DateTime.now()),
-      lastDate: DateTime.now().add(Duration(days: 365 * 2)),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(primary: greenPrimary, onPrimary: Colors.white),
-          ),
-          child: child!,
-        );
-      },
+  // Picker Theme Helper
+  Widget _buildPickerTheme(Widget child, {bool isTimePicker = false}) {
+    final theme = Theme(
+      data: ThemeData.light().copyWith(
+        colorScheme: const ColorScheme.light(primary: greenPrimary, onPrimary: Colors.white),
+      ),
+      child: child,
     );
 
-    return pickedDate;
-  }
-
-  // Method to select the time, based on a given initialDate (could be DateTime.now())
-  // Because if the user has already selected a date, we want to keep the same hour and minute
-  Future<TimeOfDay?> _selectTime(BuildContext context, DateTime initialDate) async {
-    final TimeOfDay? pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initialDate), 
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(primary: greenPrimary, onPrimary: Colors.white),
-          ),
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-            child: child!,
-          ),
-        );
-      },
-    );
-
-    return pickedTime;
-  }
-
-  // Method to select both the Date and the Time. It's called whenever the
-  // field for selecting the date is clicked and prompts the user to choose both Date and Time
-  Future<void> _selectDateTime(BuildContext context, bool isStart) async {
-    // Choose date
-    final DateTime? pickedDate = await _selectDate(context, isStart);
-    
-    if (!context.mounted) return;
-
-    if (pickedDate != null) {
-      // Pick time
-      final DateTime baseTime = (isStart ? widget.data.startDate : widget.data.endDate) ?? DateTime.now();
-
-      final DateTime initialTimeForPicker = DateTime(
-        pickedDate.year, pickedDate.month, pickedDate.day, 
-        baseTime.hour, baseTime.minute
+    if (isTimePicker) {
+      return MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: theme,
       );
-      
-      final TimeOfDay? pickedTime = await _selectTime(context, initialTimeForPicker);
-
-      if (pickedTime != null) {
-        final DateTime finalDateTime = DateTime(
-          pickedDate.year, pickedDate.month, pickedDate.day, 
-          pickedTime.hour, pickedTime.minute
-        );
-
-        // Update the data in the campaign_data instance
-        _updateStateAndValidate(finalDateTime, isStart);
-      }
     }
+    return theme;
   }
 
-  // Method that only updates the Time field
-  Future<void> _updateTime(BuildContext context, bool isStart) async {
-    final DateTime baseDateForTime = isStart ? (widget.data.startDate ?? DateTime.now()) : (widget.data.endDate ?? DateTime.now());
-    final TimeOfDay? pickedTime = await _selectTime(context, baseDateForTime); 
-
-    // Update the finalDateTime in the campaign_data
-    if (pickedTime != null) {
-      final DateTime finalDateTime = DateTime(
-          baseDateForTime.year, baseDateForTime.month, baseDateForTime.day, 
-          pickedTime.hour, pickedTime.minute
-      );
-
-      _updateStateAndValidate(finalDateTime, isStart);
-    }
-  }
-
-  // Custom TextFormField that has a validator, a key
-  // and an onTap method to show either DatePicker + TimePicker or only TimePicker
   Widget _buildDateTimePicker(
     BuildContext context, 
     String label, 

@@ -138,7 +138,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       if (mounted) {
         if (filePath != null) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Аудио файлът е запазен!"), 
+              content: Text("Файлът е запазен!"), 
               backgroundColor: greenPrimary
           ));
         } 
@@ -254,20 +254,55 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     }
   }
 
+  void _showSizeExceededError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: Colors.red.shade400,
+        ),
+      );
+    }
+  }
+
   // Attachment handlers
   void _handleAttachment(String type) async {
     final ImagePicker picker = ImagePicker();
+
+    final int maxImageSize = 10 * 1024 * 1024;
+    final int maxVideoFileSize = 50 * 1024 * 1024;
+
     try {
       if (type == 'gallery') {
          final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-         if (image != null) _uploadAndSend(File(image.path), 'chat_images', 'image', 'jpg');
+         if (image != null) {
+           File file = File(image.path);
+           if (file.lengthSync() > maxImageSize) {
+             _showSizeExceededError("Изображението не трябва да надвишава 10 MB!");
+             return;
+           }
+           _uploadAndSend(file, 'chat_images', 'image', 'jpg');
+         }
       } else if (type == 'video') {
          final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
-         if (video != null) _uploadAndSend(File(video.path), 'chat_videos', 'video', 'mp4');
+         if (video != null) {
+           File file = File(video.path);
+           if (file.lengthSync() > maxVideoFileSize) {
+             _showSizeExceededError("Видеоклипът не трябва да надвишава 50 MB!");
+             return;
+           }
+           _uploadAndSend(file, 'chat_videos', 'video', 'mp4');
+         }
       } else if (type == 'file') {
          FilePickerResult? result = await FilePicker.platform.pickFiles();
          if (result != null && result.files.single.path != null) {
             File file = File(result.files.single.path!);
+            
+            if (result.files.single.size > maxVideoFileSize) {
+              _showSizeExceededError("Файлът не трябва да надвишава 50 MB!");
+              return;
+            }
+
             String size = _formatBytes(result.files.single.size, 1);
             
             setState(() => _isUploading = true);
@@ -445,7 +480,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Копирано!")));
                   },
                 ),
-              if (isMe)
+              if (isMe || _isOrganizer)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
                   title: const Text('Изтрий', style: TextStyle(color: Colors.red)),
