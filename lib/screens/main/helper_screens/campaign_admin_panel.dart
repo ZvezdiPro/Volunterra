@@ -46,6 +46,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
   // Volunteers State
   List<VolunteerUser>? _volunteers;
   bool _isLoadingVolunteers = true;
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -66,7 +67,28 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
     _categories = List.from(widget.campaign.categories);
 
     _updateControllers();
-    _loadVolunteers();
+    _loadVolunteers(widget.campaign.registeredVolunteersUids);
+  }
+
+  void _initializeData(Campaign campaign) {
+    if (!_isInitialized) {
+      _titleController = TextEditingController(text: campaign.title);
+      _descriptionController =
+          TextEditingController(text: campaign.description);
+      _instructionsController =
+          TextEditingController(text: campaign.instructions);
+      _locationController = TextEditingController(text: campaign.location);
+
+      _startDate = campaign.startDate;
+      _endDate = campaign.endDate;
+      _latitude = campaign.latitude;
+      _longitude = campaign.longitude;
+      _categories = List.from(campaign.categories);
+
+      _updateControllers();
+      _loadVolunteers(campaign.registeredVolunteersUids);
+      _isInitialized = true;
+    }
   }
 
   @override
@@ -95,9 +117,9 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
     _endTimeController.text = _timeFormatter.format(_endDate);
   }
 
-  Future<void> _loadVolunteers() async {
+  Future<void> _loadVolunteers(List<dynamic> uids) async {
     try {
-      if (widget.campaign.registeredVolunteersUids.isEmpty) {
+      if (uids.isEmpty) {
         setState(() {
           _volunteers = [];
           _isLoadingVolunteers = false;
@@ -105,9 +127,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
         return;
       }
 
-      List<VolunteerUser> users = await _db.getVolunteersFromList(
-        widget.campaign.registeredVolunteersUids,
-      );
+      List<VolunteerUser> users = await _db.getVolunteersFromList(uids);
 
       if (mounted) {
         setState(() {
@@ -550,57 +570,77 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_hasChanges,
-      onPopInvokedWithResult: (bool didPop, dynamic result) async {
-        if (didPop) return;
-
-        final shouldLeave = await _showExitConfirmationDialog();
-
-        if (shouldLeave && context.mounted) {
-          setState(() {
-            _hasChanges = false;
-          });
-          Navigator.of(context).pop();
+    return FutureBuilder<Campaign?>(
+      future: _db.getCampaign(widget.campaign.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !_isInitialized) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
-      },
-      child: DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          backgroundColor: backgroundGrey,
-          appBar: AppBar(
-            title: const Text(
-              "Админ панел",
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
+
+        if (snapshot.hasData) {
+          _initializeData(snapshot.data!);
+
+          return PopScope(
+            canPop: !_hasChanges,
+            onPopInvokedWithResult: (bool didPop, dynamic result) async {
+              if (didPop) return;
+
+              final shouldLeave = await _showExitConfirmationDialog();
+
+              if (shouldLeave && context.mounted) {
+                setState(() {
+                  _hasChanges = false;
+                });
+                Navigator.of(context).pop();
+              }
+            },
+            child: DefaultTabController(
+              length: 3,
+              child: Scaffold(
+                backgroundColor: backgroundGrey,
+                appBar: AppBar(
+                  title: const Text(
+                    "Админ панел",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  backgroundColor: Colors.white,
+                  elevation: 1,
+                  iconTheme: const IconThemeData(color: Colors.black87),
+                  bottom: const TabBar(
+                    labelColor: greenPrimary,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: greenPrimary,
+                    tabs: [
+                      Tab(text: "Детайли"),
+                      Tab(text: "Участници"),
+                      Tab(text: "Опасна зона"),
+                    ],
+                  ),
+                ),
+                body: SafeArea(
+                  child: TabBarView(
+                    children: [
+                      _buildGeneralTab(),
+                      _buildParticipantsTab(),
+                      _buildDangerZoneTab(),
+                    ],
+                  ),
+                ),
               ),
             ),
-            backgroundColor: Colors.white,
-            elevation: 1,
-            iconTheme: const IconThemeData(color: Colors.black87),
-            bottom: const TabBar(
-              labelColor: greenPrimary,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: greenPrimary,
-              tabs: [
-                Tab(text: "Детайли"),
-                Tab(text: "Участници"),
-                Tab(text: "Опасна зона"),
-              ],
-            ),
-          ),
-          body: SafeArea(
-            child: TabBarView(
-              children: [
-                _buildGeneralTab(),
-                _buildParticipantsTab(),
-                _buildDangerZoneTab(),
-              ],
-            ),
-          ),
-        ),
-      ),
+          );
+        }
+
+        return const Scaffold(
+          body: Center(child: Text('Грешка при зареждането на кампанията.')),
+        );
+      },
     );
   }
 

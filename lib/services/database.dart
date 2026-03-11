@@ -107,6 +107,16 @@ class DatabaseService {
     }
   }
 
+  // Method to get a single campaign as a Campaign object
+  Future<Campaign?> getCampaign(String campaignId) async {
+    DocumentSnapshot doc = await campaignCollection.doc(campaignId).get();
+    if (doc.exists) {
+      return Campaign.fromFirestore(doc);
+    } else {
+      return null;
+    }
+  }
+
   // Stream to get volunteer user data from Firestore constantly
   Stream<VolunteerUser> get volunteerUserData {
     return volunteerCollection.doc(uid).snapshots().map((doc) {
