@@ -214,6 +214,15 @@ class DatabaseService {
     }, SetOptions(merge: true));
   }
 
+  // Update user location
+  Future<void> updateUserLocation(double latitude, double longitude) async {
+    if (uid == null) return;
+    return await volunteerCollection.doc(uid).update({
+      'lastKnownLatitude': latitude,
+      'lastKnownLongitude': longitude,
+    });
+  }
+
   // Upload image to Firebase Storage and return the download URL
   Future<String?> uploadImage(
     String path,
@@ -288,16 +297,26 @@ class DatabaseService {
   ) async {
     final docRef = campaignCollection.doc(campaignId);
 
-    // Update owner and remove the new owner from volunteers list
-    await docRef.update({
-      'organizerId': newOwnerId,
-      'registeredVolunteersUids': FieldValue.arrayRemove([newOwnerId]),
-      'updatedAt': DateTime.now(),
-    });
+    // Use a transaction to perform a single atomic update.
+    // This ensures Cloud Functions only trigger once
+    return await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) return;
 
-    // Add the old owner to the volunteers list
-    await docRef.update({
-      'registeredVolunteersUids': FieldValue.arrayUnion([oldOwnerId]),
+      final data = snapshot.data() as Map<String, dynamic>;
+      List<dynamic> volunteers = List.from(data['registeredVolunteersUids'] ?? []);
+      
+      // Remove new owner from volunteers, add old owner to volunteers
+      volunteers.remove(newOwnerId);
+      if (!volunteers.contains(oldOwnerId)) {
+        volunteers.add(oldOwnerId);
+      }
+
+      transaction.update(docRef, {
+        'organizerId': newOwnerId,
+        'registeredVolunteersUids': volunteers,
+        'updatedAt': DateTime.now(),
+      });
     });
   }
 

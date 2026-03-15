@@ -4,8 +4,11 @@ import 'package:volunteer_app/screens/main/events_page.dart';
 import 'package:volunteer_app/screens/main/chats.dart';
 import 'package:volunteer_app/screens/main/profile.dart';
 import 'package:volunteer_app/services/authenticate.dart';
+import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/services/fcm_service.dart';
 import 'package:volunteer_app/shared/colors.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -22,6 +25,42 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     FCMService().init();
+    _updateLocationOnStartup();
+  }
+
+  Future<void> _updateLocationOnStartup() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium)
+      );
+      
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await DatabaseService(uid: user.uid).updateUserLocation(position.latitude, position.longitude);
+      }
+    } catch (e) {
+      debugPrint("Error fetching/saving location: \$e");
+    }
   }
 
   @override
