@@ -206,6 +206,14 @@ class DatabaseService {
     return await volunteerCollection.doc(uid).update({'avatarUrl': avatarUrl});
   }
 
+  // Update FCM token
+  Future<void> updateFCMToken(String token) async {
+    if (uid == null) return;
+    return await volunteerCollection.doc(uid).set({
+      'fcmToken': token,
+    }, SetOptions(merge: true));
+  }
+
   // Upload image to Firebase Storage and return the download URL
   Future<String?> uploadImage(
     String path,

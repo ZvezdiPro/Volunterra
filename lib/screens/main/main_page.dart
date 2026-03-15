@@ -4,6 +4,7 @@ import 'package:volunteer_app/screens/main/events_page.dart';
 import 'package:volunteer_app/screens/main/chats.dart';
 import 'package:volunteer_app/screens/main/profile.dart';
 import 'package:volunteer_app/services/authenticate.dart';
+import 'package:volunteer_app/services/fcm_service.dart';
 import 'package:volunteer_app/shared/colors.dart';
 
 class MainPage extends StatefulWidget {
@@ -16,6 +17,12 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final AuthService _auth = AuthService();
   int currentPageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    FCMService().init();
+  }
 
   @override
   Widget build(BuildContext context) {
