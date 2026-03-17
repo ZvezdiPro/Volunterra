@@ -1,8 +1,13 @@
-# Volunteer Varna
+# Volunterra
 
-**Volunteer Varna** is a mobile app (currently) built for Android which connects volunteers with campaigns and helps organizers find enthusiastic people to join their cause.
+**Volunterra** is a mobile app (currently) built for Android which connects volunteers with campaigns and helps organizers find enthusiastic people to join their cause.
 
 ## 🚀 Key Features
+
+### 📱 Dynamic homepage custom built for the user
+* **Latest Campaign:** Instantly view the most recently added campaign to keep up-to-date with new opportunities.
+* **Smart Recommendations:** Tailored campaign suggestions based on your interests and previous participations.
+* **User Activity Overview:** A quick glance at your recent volunteering actions, ongoing campaigns, and overall progress.
 
 ### 🔐 Authentication & User Management
 * **Hybrid Auth System:** Supports Email/Password registration and Google / Facebook Sign-In.
@@ -15,9 +20,11 @@
     * *Step 3:* Image upload and final review.
 * **Browse & Filter:** Real-time feed of active campaigns.
 * **Bookmarks:** Users can save campaigns to their personal list.
+* **Admin Panel:** Allowing campaign organizers to manage their campaigns
 
 ### 💬 Real-Time Communication
 * **Group Chats:** Every campaign has a dedicated chat room for accepted volunteers.
+* **Push Notifications:** Keep up to date with device push notifications about changes in campaigns
 * **Instant Updates:** Powered by Firestore streams for real-time messaging.
 
 ### 🎮 Gamification (Leveling System) - In development
@@ -28,10 +35,10 @@
 
 ## 🔮 Future Improvements
 
-* [ ] Dynamic homepage custom built for the user
-* [ ] Push Notifications for new messages and campaign reminders
 * [ ] Dark Mode and personalisation
 * [ ] Gamification, experience levels, more social features
+* [ ] Calendar Sync: Easily add upcoming volunteer events directly to your device's native calendar.
+* [ ] iOS Release
 
 ---
 
@@ -42,6 +49,16 @@
     * **Firebase Auth:** User identification.
     * **Cloud Firestore:** NoSQL database for storing users, campaigns, and chats.
     * **Firebase Storage:** Hosting campaign images and user avatars.
+
+---
+
+## 📥 Download & Install (For Users)
+
+Want to try **Volunterra** right away without setting up the development environment? You can download the app directly to your Android device:
+
+1. Navigate to the [Releases](https://github.com/ZvezdiPro/volunterra/releases) page of this repository.
+2. Download the latest `.apk` file (e.g., `app-release.apk`) under the "Assets" section.
+3. Open the downloaded file on your Android device and tap **Install** (you might need to allow installations from unknown sources in your settings).
 
 ---
 
@@ -57,8 +74,8 @@ To run this project locally:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/ZvezdiPro/volunteer-varna.git
-    cd volunteer-varna
+    git clone https://github.com/ZvezdiPro/volunterra.git
+    cd volunterra
     ```
 
 2.  **Install dependencies:**
@@ -81,10 +98,10 @@ To run this project locally:
 
 ## 🏢 For NGOs & Organizations
 
-We are constantly looking to expand our network of trusted partners! **Volunteer Varna** provides specific tools designed to help Non-Governmental Organizations (NGOs) manage their events more efficiently.
+We are constantly looking to expand our network of trusted partners! **Volunterra** provides specific tools designed to help Non-Governmental Organizations (NGOs) manage their events more efficiently.
 
 ### Why join us?
-* **Targeted Audience:** Reach people specifically looking to volunteer in Varna (Bulgaria - coming later!).
+* **Targeted Audience:** Reach people specifically looking to volunteer in Varna and the region (and Bulgaria as a whole).
 * **Management Tools:** Easily track participants and communicate with them via dedicated chat rooms.
 * **Gamification:** Our XP system motivates volunteers to show up and perform well.
 
@@ -101,4 +118,4 @@ Feel free to reach out if you have any questions or suggestions about the projec
 * **Email:** zvezdipenev@gmail.com
 * **GitHub:** [github.com/ZvezdiPro](https://github.com/ZvezdiPro)
 
-Project Link: [https://github.com/ZvezdiPro/volunteer-varna](https://github.com/ZvezdiPro/volunteer-varna)
+Project Link: [https://github.com/ZvezdiPro/volunterra](https://github.com/ZvezdiPro/volunterra)
