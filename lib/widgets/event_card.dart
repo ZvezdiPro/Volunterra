@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:volunteer_app/models/campaign.dart';
-import 'package:volunteer_app/widgets/campaign_details_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
 import 'package:volunteer_app/shared/colors.dart';
 
 class CampaignCard extends StatefulWidget {

@@ -24,6 +24,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
   final PageController _pageController = PageController();
 
   bool _loading = false;
+  bool _isImageUploading = false;
   int _currentPage = 0;
   final int totalSteps = 3;
 
@@ -176,7 +177,15 @@ class _CreateCampaignState extends State<CreateCampaign> {
                 children: [
                   CreateCampaignStepOne(data: _data, formKey: _stepOneFormKey),
                   CreateCampaignStepTwo(data: _data, formKey: _stepTwoFormKey),
-                  CreateCampaignStepThree(data: _data, formKey: _stepThreeFormKey)
+                  CreateCampaignStepThree(
+                    data: _data, 
+                    formKey: _stepThreeFormKey,
+                    onUploadingChanged: (isUploading) {
+                      setState(() {
+                        _isImageUploading = isUploading;
+                      });
+                    },
+                  )
                 ],
               ),
             ),
@@ -240,15 +249,26 @@ class _CreateCampaignState extends State<CreateCampaign> {
                     SizedBox(
                       width: 100,
                       child: GestureDetector(
-                        onTap: nextStep,
+                        onTap: _isImageUploading ? () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Моля, изчакайте качването на снимката да приключи!', style: TextStyle(fontWeight: FontWeight.bold)),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                        } : nextStep,
                         // If we're on the last step, show different text
-                        child: Text(
-                          _currentPage == totalSteps - 1 ? 'Край' : 'Напред',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: greenPrimary,
+                        child: AnimatedOpacity(
+                          opacity: _isImageUploading ? 0.5 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            _currentPage == totalSteps - 1 ? 'Край' : 'Напред',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: greenPrimary,
+                            ),
                           ),
                         )
                       ),

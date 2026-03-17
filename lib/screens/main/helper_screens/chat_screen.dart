@@ -44,6 +44,7 @@ class CampaignChatScreen extends StatefulWidget {
 class _CampaignChatScreenState extends State<CampaignChatScreen> {
   // State variables
   Map<String, String>? _replyMessage;
+  Map<String, String>? _editingMessage;
   bool _isUploading = false;
   bool _isSharing = false;
 
@@ -138,7 +139,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       if (mounted) {
         if (filePath != null) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Аудио файлът е запазен!"), 
+              content: Text("Файлът е запазен!"), 
               backgroundColor: greenPrimary
           ));
         } 
@@ -165,7 +166,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
           'timestamp': DateTime.now().toIso8601String(),
         }
       });
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Съобщението е закачено!")));
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Съобщението е закачено!", style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: greenPrimary));
     } catch (e) {
       debugPrint("Pin Error: $e");
     }
@@ -184,7 +185,32 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
   // Sand message handlers
   void _handleSendText(String text) {
-    _sendMessage(text: text);
+    if (_editingMessage != null) {
+      _handleUpdateMessage(text);
+    } else {
+      _sendMessage(text: text);
+    }
+  }
+
+  void _handleUpdateMessage(String newText) async {
+    final originalMessageId = _editingMessage!['id']!;
+    setState(() {
+      _editingMessage = null;
+    });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('campaigns')
+          .doc(widget.campaign.id)
+          .collection('messages')
+          .doc(originalMessageId)
+          .update({
+        'text': newText,
+        'isEdited': true,
+      });
+    } catch (e) {
+      debugPrint("Error updating message: $e");
+    }
   }
 
   void _handleSendAudio(String path) async {
@@ -254,20 +280,55 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     }
   }
 
+  void _showSizeExceededError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: Colors.red.shade400,
+        ),
+      );
+    }
+  }
+
   // Attachment handlers
   void _handleAttachment(String type) async {
     final ImagePicker picker = ImagePicker();
+
+    final int maxImageSize = 10 * 1024 * 1024;
+    final int maxVideoFileSize = 50 * 1024 * 1024;
+
     try {
       if (type == 'gallery') {
          final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-         if (image != null) _uploadAndSend(File(image.path), 'chat_images', 'image', 'jpg');
+         if (image != null) {
+           File file = File(image.path);
+           if (file.lengthSync() > maxImageSize) {
+             _showSizeExceededError("Изображението не трябва да надвишава 10 MB!");
+             return;
+           }
+           _uploadAndSend(file, 'chat_images', 'image', 'jpg');
+         }
       } else if (type == 'video') {
          final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
-         if (video != null) _uploadAndSend(File(video.path), 'chat_videos', 'video', 'mp4');
+         if (video != null) {
+           File file = File(video.path);
+           if (file.lengthSync() > maxVideoFileSize) {
+             _showSizeExceededError("Видеоклипът не трябва да надвишава 50 MB!");
+             return;
+           }
+           _uploadAndSend(file, 'chat_videos', 'video', 'mp4');
+         }
       } else if (type == 'file') {
          FilePickerResult? result = await FilePicker.platform.pickFiles();
          if (result != null && result.files.single.path != null) {
             File file = File(result.files.single.path!);
+            
+            if (result.files.single.size > maxVideoFileSize) {
+              _showSizeExceededError("Файлът не трябва да надвишава 50 MB!");
+              return;
+            }
+
             String size = _formatBytes(result.files.single.size, 1);
             
             setState(() => _isUploading = true);
@@ -445,12 +506,42 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Копирано!")));
                   },
                 ),
-              if (isMe)
+              if (isMe && type == 'text' && messageText.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.purple),
+                  title: const Text('Редактирай'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _editingMessage = {'id': docId, 'text': messageText};
+                    });
+                  },
+                ),
+              if (isMe || _isOrganizer)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
                   title: const Text('Изтрий', style: TextStyle(color: Colors.red)),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
+
+                    // Check if the message is pinned and unpin it if so
+                    try {
+                      final campaignDoc = await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).get();
+                      if (campaignDoc.exists) {
+                        final data = campaignDoc.data() as Map<String, dynamic>;
+                        if (data.containsKey('pinnedMessage')) {
+                          final pinned = data['pinnedMessage'] as Map<String, dynamic>;
+                          if (pinned['id'] == docId) {
+                            await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
+                              'pinnedMessage': FieldValue.delete(),
+                            });
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint("Error checking/unpinning message: $e");
+                    }
+
                     FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).collection('messages').doc(docId).delete();
                   },
                 ),
@@ -545,7 +636,19 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F4F7),
       appBar: AppBar(
-        title: Text(widget.campaign.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        title: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).snapshots(),
+          builder: (context, snapshot) {
+            String title = widget.campaign.title;
+            if (snapshot.hasData && snapshot.data!.exists) {
+              final data = snapshot.data!.data() as Map<String, dynamic>?;
+              if (data != null && data.containsKey('title')) {
+                title = data['title'];
+              }
+            }
+            return Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold));
+          },
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
@@ -705,6 +808,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                               contactPhone: data['contactPhone'],
                               duration: data['duration'],
                               isMe: isMe,
+                              isEdited: data['isEdited'] ?? false,
                               senderName: data['senderName'] ?? 'Потребител',
                               timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
                               reactions: reactions,
@@ -730,31 +834,33 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               ),
               
               if (_isUploading) const LinearProgressIndicator(minHeight: 2, color: greenPrimary),
+ 
+               if (_editingMessage != null)
+                  Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Container(
+                       padding: const EdgeInsets.all(8),
+                       decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(12), border: Border(left: BorderSide(color: Colors.blue, width: 4))),
+                       child: Row(children: [
+                         const Icon(Icons.edit, color: Colors.blue, size: 20),
+                         const SizedBox(width: 8),
+                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                           const Text("Редактиране", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue)),
+                           Text(_editingMessage!['text']!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54))
+                         ])),
+                         IconButton(icon: const Icon(Icons.close, size: 20, color: Colors.grey), onPressed: () => setState(() => _editingMessage = null))
+                       ]),
+                    ),
+                  ),
 
-              if (_replyMessage != null)
-                 Container(
-                   color: Colors.white,
-                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                   child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12), border: Border(left: BorderSide(color: greenPrimary, width: 4))),
-                      child: Row(children: [
-                        const Icon(Icons.reply, color: greenPrimary, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text("Отговор на ${_replyMessage!['name']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: greenPrimary)),
-                          Text(_replyMessage!['text']!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54))
-                        ])),
-                        IconButton(icon: const Icon(Icons.close, size: 20, color: Colors.grey), onPressed: () => setState(() => _replyMessage = null))
-                      ]),
-                   ),
-                 ),
-
-              ChatInputArea(
-                onSendText: _handleSendText,
-                onSendAudio: _handleSendAudio,
-                onAttachmentTap: _handleAttachment,
-              ),
+               ChatInputArea(
+                 onSendText: _handleSendText,
+                 onSendAudio: _handleSendAudio,
+                 onAttachmentTap: _handleAttachment,
+                 editingMessage: _editingMessage?['text'],
+                 onCancelEdit: () => setState(() => _editingMessage = null),
+               ),
             ],
           ),
 
@@ -783,12 +889,16 @@ class ChatInputArea extends StatefulWidget {
   final Function(String) onSendText;
   final Function(String) onSendAudio;
   final Function(String) onAttachmentTap;
+  final String? editingMessage;
+  final VoidCallback? onCancelEdit;
 
   const ChatInputArea({
     super.key,
     required this.onSendText,
     required this.onSendAudio,
     required this.onAttachmentTap,
+    this.editingMessage,
+    this.onCancelEdit,
   });
 
   @override
@@ -801,6 +911,18 @@ class _ChatInputAreaState extends State<ChatInputArea> {
   
   bool _showSendButton = false;
   bool _isRecording = false;
+
+  @override
+  void didUpdateWidget(ChatInputArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.editingMessage != oldWidget.editingMessage && widget.editingMessage != null) {
+      _controller.text = widget.editingMessage!;
+      _showSendButton = true;
+    } else if (widget.editingMessage == null && oldWidget.editingMessage != null) {
+      _controller.clear();
+      _showSendButton = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -972,7 +1094,7 @@ class _ChatInputAreaState extends State<ChatInputArea> {
                         duration: const Duration(milliseconds: 200),
                         transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
                         child: Icon(
-                          _showSendButton ? Icons.send_rounded : Icons.mic,
+                          _showSendButton ? (widget.editingMessage != null ? Icons.check_circle_outline : Icons.send_rounded) : Icons.mic,
                           key: ValueKey(_showSendButton),
                           color: Colors.white,
                           size: 24,

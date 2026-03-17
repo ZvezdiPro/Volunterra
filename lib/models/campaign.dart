@@ -25,6 +25,7 @@ class Campaign {
   final List<String> categories;
   final List<String> registeredVolunteersUids;
   final String status; // "active" by default
+  final bool isDelisted;
 
   Campaign({
     required this.id,
@@ -44,6 +45,7 @@ class Campaign {
     this.instructions = '',
     this.registeredVolunteersUids = const [],
     this.status = 'active',
+    this.isDelisted = false,
   });
 
   bool get isActive => status == 'active';
@@ -68,6 +70,7 @@ class Campaign {
       categories: List<String>.from(data['categories'] ?? const []),
       registeredVolunteersUids: List<String>.from(data['registeredVolunteersUids'] ?? const []),
       status: data['status'] ?? 'active',
+      isDelisted: data['isDelisted'] ?? false,
     );
   }
 

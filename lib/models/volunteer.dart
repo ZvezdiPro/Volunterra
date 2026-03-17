@@ -14,6 +14,8 @@ class VolunteerUser {
   final String? avatarUrl;
   final String? phoneNumber;
   final DateTime? dateOfBirth;
+  final double? lastKnownLatitude;
+  final double? lastKnownLongitude;
 
   // Automatically created
   final int experiencePoints;
@@ -36,6 +38,8 @@ class VolunteerUser {
       avatarUrl = null,
       phoneNumber = null,
       dateOfBirth = null,
+      lastKnownLatitude = null,
+      lastKnownLongitude = null,
       bookmarkedCampaignsIds = const [];
 
   // Full Constructor
@@ -53,6 +57,8 @@ class VolunteerUser {
     this.avatarUrl,
     this.phoneNumber,
     this.dateOfBirth,
+    this.lastKnownLatitude,
+    this.lastKnownLongitude,
     this.bookmarkedCampaignsIds = const [],
   });
 
@@ -74,6 +80,8 @@ class VolunteerUser {
       avatarUrl: data['avatarUrl'],
       phoneNumber: data['phoneNumber'],
       dateOfBirth: data['dateOfBirth'] != null ? (data['dateOfBirth'] as Timestamp).toDate() : null,
+      lastKnownLatitude: (data['lastKnownLatitude'] as num?)?.toDouble(),
+      lastKnownLongitude: (data['lastKnownLongitude'] as num?)?.toDouble(),
       bookmarkedCampaignsIds: List<String>.from(data['bookmarkedCampaignsIds'] ?? []),
     );
   }

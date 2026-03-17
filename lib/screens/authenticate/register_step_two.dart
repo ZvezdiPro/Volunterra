@@ -43,7 +43,11 @@ class _RegisterStepTwoState extends State<RegisterStepTwo> {
             TextFormField(
               initialValue: widget.data.firstName,
               decoration: textInputDecoration.copyWith(hintText: 'Име'),
-              validator: (val) => val!.isEmpty ? 'Моля, въведете име' : null,
+              validator: (val) {
+                if (val == null || val.isEmpty) return 'Моля, въведете име';
+                if (val.length > 30) return 'Името е твърде дълго (макс. 30 символа)';
+                return null;
+              },
               onChanged: (val) => widget.data.firstName = val, 
             ),
 
@@ -53,7 +57,11 @@ class _RegisterStepTwoState extends State<RegisterStepTwo> {
             TextFormField(
               initialValue: widget.data.lastName,
               decoration: textInputDecoration.copyWith(hintText: 'Фамилия'),
-              validator: (val) => val!.isEmpty ? 'Моля, въведете фамилия' : null,
+              validator: (val) {
+                if (val == null || val.isEmpty) return 'Моля, въведете фамилия';
+                if (val.length > 30) return 'Фамилията е твърде дълга (макс. 30 символа)';
+                return null;
+              },
               onChanged: (val) => widget.data.lastName = val, 
             ),
 
@@ -64,6 +72,15 @@ class _RegisterStepTwoState extends State<RegisterStepTwo> {
               initialValue: widget.data.phoneNumber,
               keyboardType: TextInputType.phone,
               decoration: textInputDecoration.copyWith(hintText: 'Телефонен номер (по избор)', hintStyle: TextStyle(color: Colors.grey[600])),
+              validator: (val) {
+                if (val != null && val.isNotEmpty) {
+                  // Validates Bulgarian formats: 08XXXXXXXX or +3598XXXXXXXX
+                  if (!RegExp(r'^(?:\+359|0)\d{9}$').hasMatch(val)) {
+                    return 'Въведете валиден телефонен номер';
+                  }
+                }
+                return null;
+              },
               onChanged: (val) => widget.data.phoneNumber = val.isEmpty ? null : val, 
             ),
 
@@ -95,9 +112,12 @@ class _RegisterStepTwoState extends State<RegisterStepTwo> {
             TextFormField(
               initialValue: widget.data.bio,
               maxLines: 5,
+              maxLength: 200,
               scrollPadding: EdgeInsets.only(bottom: 140.0),
               decoration: textInputDecoration.copyWith(hintText: 'Разкажи за себе си... (по избор)', hintStyle: TextStyle(color: Colors.grey[600])),
-              onChanged: (val) => widget.data.bio = val.isEmpty ? null : val, 
+              onChanged: (val) {
+                widget.data.bio = val.isEmpty ? null : val;
+              },
             ),
             
             SizedBox(height: 30.0),
@@ -113,6 +133,7 @@ class _RegisterStepTwoState extends State<RegisterStepTwo> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.light().copyWith(

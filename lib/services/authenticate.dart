@@ -82,6 +82,16 @@ class AuthService {
     }
   }
 
+  // Send password reset email
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      // print(e.toString());
+      rethrow;
+    }
+  }
+
   // Sign in with Google
   Future<VolunteerUser?> googleLogin() async {
     // Trigger the authentication flow

@@ -4,7 +4,7 @@ import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
-import 'package:volunteer_app/widgets/campaign_details_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final VolunteerUser volunteer;
@@ -60,8 +60,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     return Scaffold(
       backgroundColor: backgroundGrey, 
       appBar: AppBar(
-        title: const Text('Профил на доброволец', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: Colors.white,
+        title: const Text('Профил на доброволец', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20)),
+        backgroundColor: backgroundGrey,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
       ),

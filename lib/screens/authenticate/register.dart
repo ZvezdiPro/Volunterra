@@ -63,8 +63,8 @@ class _RegisterState extends State<Register> {
         if (_data.interests.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: Colors.green[400],
-              content: Text('Моля, изберете поне един интерес.', style: TextStyle(color: Colors.black))
+              backgroundColor: greenPrimary,
+              content: Text('Моля, изберете поне един интерес.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
               ),
           );
           return;

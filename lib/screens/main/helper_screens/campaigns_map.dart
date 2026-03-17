@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:volunteer_app/models/campaign.dart';
-import 'package:volunteer_app/widgets/campaign_details_screen.dart'; 
+import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart'; 
 import 'package:volunteer_app/shared/colors.dart';
 
 class CampaignsMapScreen extends StatefulWidget {

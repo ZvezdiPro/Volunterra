@@ -4,13 +4,13 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
-import 'package:volunteer_app/screens/main/edit_profile_screen.dart';
-import 'package:volunteer_app/screens/main/settings.dart';
-import 'package:volunteer_app/screens/main/achievements.dart';
-import 'package:volunteer_app/screens/main/saved_campaigns.dart';
+import 'package:volunteer_app/screens/main/helper_screens/edit_profile_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/settings.dart';
+import 'package:volunteer_app/screens/main/helper_screens/achievements.dart';
+import 'package:volunteer_app/screens/main/helper_screens/saved_campaigns.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
-import 'package:volunteer_app/widgets/campaign_details_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});

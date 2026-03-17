@@ -68,6 +68,8 @@ dependencies:
   geocoding: ^4.0.0
   geolocator: ^14.0.2
   flutter_launcher_icons: ^0.14.4
+  firebase_messaging: ^16.1.2
+  flutter_local_notifications: ^21.0.0
 
 dev_dependencies:
   flutter_test:

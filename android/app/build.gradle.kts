@@ -26,6 +26,7 @@ plugins {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
     implementation(platform("com.facebook.android:facebook-android-sdk:4.42.0"))
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 android {
@@ -34,6 +35,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -48,6 +50,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
         manifestPlaceholders["googleMapsApiKey"] = localProperties.getProperty("googleMapsApiKey", "")
     }
 

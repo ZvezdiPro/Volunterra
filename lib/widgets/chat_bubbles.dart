@@ -24,6 +24,7 @@ class ChatBubble extends StatelessWidget {
   final Map<String, dynamic> reactions;
   final String? replyToName;
   final String? replyToText;
+  final bool isEdited;
   
   final VoidCallback? onLongPress;
   final Function(String emoji)? onReactionTap;
@@ -44,6 +45,7 @@ class ChatBubble extends StatelessWidget {
     this.reactions = const {},
     this.replyToName,
     this.replyToText,
+    this.isEdited = false,
     this.onLongPress,
     this.onReactionTap,
   });
@@ -202,10 +204,22 @@ class ChatBubble extends StatelessWidget {
       
                           const SizedBox(height: 4),
 
-                          Row(
+                           Row(
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
+                              if (isEdited)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Text(
+                                    "(редактирано)",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontStyle: FontStyle.italic,
+                                      color: isMe ? Colors.white.withAlpha(150) : Colors.grey[400],
+                                    ),
+                                  ),
+                                ),
                               Text(
                                 DateFormat('HH:mm').format(timestamp),
                                 style: TextStyle(

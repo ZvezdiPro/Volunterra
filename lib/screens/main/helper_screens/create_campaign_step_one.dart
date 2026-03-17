@@ -45,15 +45,19 @@ class _CreateCampaignStepOneState extends State<CreateCampaignStepOne> {
             TextFormField(
               key: _titleKey,
               initialValue: widget.data.title,
+              maxLength: 50,
               decoration: textInputDecoration.copyWith(labelText: 'Име', hintText: 'Например: Почистване на плажа'),
-              validator: (val) => val!.isEmpty ? 'Въведете име' : null,
+              validator: (val) {
+                if (val == null || val.isEmpty) return 'Въведете име';
+                return null;
+              },
               onChanged: (val) {
                 widget.data.title = val.trim();
                 _titleKey.currentState?.validate();
               },
             ),
 
-            SizedBox(height: 20.0),
+            SizedBox(height: 10.0),
 
             // Description input
             Text('Кратко описание', style: textFormFieldHeading),
@@ -62,10 +66,14 @@ class _CreateCampaignStepOneState extends State<CreateCampaignStepOne> {
               key: _descriptionKey,
               scrollPadding: EdgeInsets.only(bottom: 100),
               initialValue: widget.data.description,
+              maxLength: 300,
               decoration: textInputDecoration.copyWith(labelText: 'Въведете описание', hintText: 'Ще съберем пластмасови отпадъци от плажната ивица и ще ги рециклираме.'),
               maxLines: 4,
               keyboardType: TextInputType.multiline,
-              validator: (val) => val!.isEmpty ? 'Въведете описание' : null,
+              validator: (val) {
+                if (val == null || val.isEmpty) return 'Въведете описание';
+                return null;
+              },
               onChanged: (val) {
                 widget.data.description = val.trim();
                 _descriptionKey.currentState?.validate();

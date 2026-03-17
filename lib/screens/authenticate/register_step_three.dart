@@ -69,8 +69,8 @@ class _RegisterStepThreeState extends State<RegisterStepThree> {
                         else {
                            ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              backgroundColor: Colors.green[400],
-                              content: Text('Можете да изберете до максимум 5 интереса!', style: TextStyle(color: Colors.black))
+                              backgroundColor: greenPrimary,
+                              content: Text('Можете да изберете до максимум 5 интереса!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
                               ),
                           );
                         }

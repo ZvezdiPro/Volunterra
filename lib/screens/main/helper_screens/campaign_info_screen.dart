@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:volunteer_app/models/campaign.dart';
+import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/services/database.dart';
+import 'package:volunteer_app/screens/main/helper_screens/public_profile_screen.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/shared/constants.dart';
 
@@ -57,6 +60,56 @@ class CampaignInfoScreen extends StatelessWidget {
                 style: mainHeadingStyle.copyWith(fontSize: 24),
               ),
             ),
+
+            const SizedBox(height: 10),
+
+            // Organizer info
+            FutureBuilder<VolunteerUser?>(
+              future: DatabaseService(uid: campaign.organizerId).getVolunteerUser(),
+              builder: (context, organizerSnapshot) {
+                if (organizerSnapshot.hasData && organizerSnapshot.data != null) {
+                  final organizer = organizerSnapshot.data!;
+                  return Center(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PublicProfileScreen(volunteer: organizer),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withAlpha(25),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.blue.withAlpha(50)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.account_circle_outlined, size: 18, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Организатор: ${organizer.firstName} ${organizer.lastName}",
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+
             const SizedBox(height: 20),
 
             // Location Section
