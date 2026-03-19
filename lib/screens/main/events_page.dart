@@ -155,14 +155,14 @@ class _EventsPageState extends State<EventsPage> {
     return StreamProvider<List<Campaign>?>.value(
       value: DatabaseService().campaigns,
       initialData: null,
-      child: Scaffold(
-        backgroundColor: backgroundGrey,
-        
-        body: StreamBuilder<VolunteerUser?>(
-          stream: DatabaseService(uid: userUid).volunteerUserData,
-          builder: (context, userSnapshot) {
-            VolunteerUser? user = userSnapshot.data;
-            return Consumer<List<Campaign>?>(
+      child: StreamBuilder<VolunteerUser?>(
+        stream: DatabaseService(uid: userUid).volunteerUserData,
+        builder: (context, userSnapshot) {
+          VolunteerUser? user = userSnapshot.data;
+          return Scaffold(
+            backgroundColor: backgroundGrey,
+            
+            body: Consumer<List<Campaign>?>(
               builder: (context, allCampaigns, child) {
                 if (allCampaigns == null) {
                   return Center(
@@ -447,25 +447,25 @@ class _EventsPageState extends State<EventsPage> {
                   ],
                 );
               },
-            );
-          }
-        ),
+            ),
 
-        floatingActionButton: !_auth.currentUser!.isAnonymous
-          ? FloatingActionButton.extended(
-              icon: const Icon(Icons.add_task),
-              label: const Text('Добави събитие'),
-              backgroundColor: greenPrimary,
-              foregroundColor: Colors.white,
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => CreateCampaign(),
-                  ),
-                );
-              },
-            )
-          : null,
+            floatingActionButton: (!_auth.currentUser!.isAnonymous && user != null && user.isOrganizer)
+              ? FloatingActionButton.extended(
+                  icon: const Icon(Icons.add_task),
+                  label: const Text('Добави събитие'),
+                  backgroundColor: greenPrimary,
+                  foregroundColor: Colors.white,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => CreateCampaign(),
+                      ),
+                    );
+                  },
+                )
+              : null,
+          );
+        },
       ),
     );
   }

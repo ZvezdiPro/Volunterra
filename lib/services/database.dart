@@ -65,6 +65,7 @@ class DatabaseService {
       if (!isOAuthLogin) {
         userData['isEmailVerified'] = false; // Fresh email registration is unverified
       }
+      userData['isOrganizer'] = false;
       
       // If the user hasn't put values to these optional fields
       // Then we set them to default values (empty string or null)
