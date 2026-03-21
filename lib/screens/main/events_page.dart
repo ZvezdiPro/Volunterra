@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/screens/main/create_campaign.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaigns_map.dart';
 import 'package:volunteer_app/services/database.dart';
@@ -59,7 +60,7 @@ class _EventsPageState extends State<EventsPage> {
     }
   }
 
-  void _openCategoryFilter(VolunteerUser? user) {
+  void _openCategoryFilter(dynamic user, bool isNgo) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -85,7 +86,7 @@ class _EventsPageState extends State<EventsPage> {
                       Row(
                         children: [
                           // Show "My Interests" button only if user is logged in and has interests
-                          if (user != null && !_auth.currentUser!.isAnonymous)
+                          if (user is VolunteerUser && !_auth.currentUser!.isAnonymous && !isNgo)
                             TextButton.icon(
                               icon: const Icon(Icons.person, size: 16, color: greenPrimary),
                               label: const Text("Моите интереси", style: TextStyle(color: greenPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
@@ -151,14 +152,16 @@ class _EventsPageState extends State<EventsPage> {
   @override
   Widget build(BuildContext context) {
     final userUid = _auth.currentUser?.uid;
+    final Object? authUserObj = Provider.of<Object?>(context);
+    final bool isNgo = authUserObj is NGO;
     
     return StreamProvider<List<Campaign>?>.value(
       value: DatabaseService().campaigns,
       initialData: null,
-      child: StreamBuilder<VolunteerUser?>(
-        stream: DatabaseService(uid: userUid).volunteerUserData,
+      child: StreamBuilder<dynamic>(
+        stream: isNgo ? DatabaseService(uid: userUid).ngoData : DatabaseService(uid: userUid).volunteerUserData,
         builder: (context, userSnapshot) {
-          VolunteerUser? user = userSnapshot.data;
+          final dynamic user = userSnapshot.data;
           return Scaffold(
             backgroundColor: backgroundGrey,
             
@@ -200,7 +203,9 @@ class _EventsPageState extends State<EventsPage> {
                   // Saved campaigns filter
                   bool matchesSaved = true;
                   if (_showSavedOnly) {
-                     if (user != null) {
+                     if (isNgo && user is NGO) {
+                       matchesSaved = user.bookmarkedCampaignsIds.contains(campaign.id);
+                     } else if (user is VolunteerUser) {
                        matchesSaved = user.bookmarkedCampaignsIds.contains(campaign.id);
                      } else {
                        matchesSaved = false;
@@ -311,7 +316,7 @@ class _EventsPageState extends State<EventsPage> {
                                       ],
                                     ),
                                     selected: _selectedCategories.isNotEmpty,
-                                    onSelected: (_) => _openCategoryFilter(user),
+                                    onSelected: (_) => _openCategoryFilter(user, isNgo),
                                     backgroundColor: Colors.white,
                                     selectedColor: greenPrimary.withAlpha(50),
                                     labelStyle: TextStyle(
@@ -449,18 +454,27 @@ class _EventsPageState extends State<EventsPage> {
               },
             ),
 
-            floatingActionButton: (!_auth.currentUser!.isAnonymous && user != null && user.isOrganizer)
+            floatingActionButton: (!_auth.currentUser!.isAnonymous && (isNgo || (user is VolunteerUser && user.isOrganizer)))
               ? FloatingActionButton.extended(
                   icon: const Icon(Icons.add_task),
                   label: const Text('Добави събитие'),
                   backgroundColor: greenPrimary,
                   foregroundColor: Colors.white,
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => CreateCampaign(),
-                      ),
-                    );
+                    if (isNgo && user is NGO && !user.isVerified) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Като НПО ще имате възможност да създавате кампании след като бъдете одобрени!', style: TextStyle(fontWeight: FontWeight.bold)),
+                          backgroundColor: Colors.orange,
+                        )
+                      );
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const CreateCampaign(),
+                        ),
+                      );
+                    }
                   },
                 )
               : null,

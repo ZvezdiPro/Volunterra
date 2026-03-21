@@ -19,7 +19,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart'; 
 import 'package:share_plus/share_plus.dart';
 import 'package:volunteer_app/models/campaign.dart';
-import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_admin_panel.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_info_screen.dart';
 import 'package:volunteer_app/services/database.dart';
@@ -29,7 +29,7 @@ import 'package:volunteer_app/widgets/chat_bubbles.dart';
 // Main screen for campaign chat widget
 class CampaignChatScreen extends StatefulWidget {
   final Campaign campaign;
-  final VolunteerUser currentUser;
+  final dynamic currentUser;
 
   const CampaignChatScreen({
     super.key,
@@ -48,7 +48,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   bool _isUploading = false;
   bool _isSharing = false;
 
-  bool get _isOrganizer => widget.campaign.organizerId == widget.currentUser.uid;
+  String get _currentUid => widget.currentUser is NGO ? widget.currentUser.id : widget.currentUser.uid;
+  String get _currentName => widget.currentUser is NGO ? widget.currentUser.name : widget.currentUser.firstName;
+
+  bool get _isOrganizer => widget.campaign.organizerId == _currentUid;
 
   // Helper method to format bytes to human-readable string
   String _formatBytes(int bytes, int decimals) {
@@ -267,8 +270,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
         'fileSize': fileSize ?? '',
         'contactName': contactName ?? '',
         'contactPhone': contactPhone ?? '',
-        'senderId': widget.currentUser.uid,
-        'senderName': widget.currentUser.firstName,
+        'senderId': _currentUid,
+        'senderName': _currentName,
         'timestamp': FieldValue.serverTimestamp(),
         'reactions': {},
         'replyToName': replyData?['name'],
@@ -402,7 +405,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
   // Toggle reaction
   Future<void> _toggleReaction(String docId, String emoji, Map<String, dynamic> currentReactions) async {
-    final uid = widget.currentUser.uid;
+    final uid = _currentUid;
     final docRef = FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).collection('messages').doc(docId);
     if (currentReactions[uid] == emoji) {
        await docRef.update({'reactions.$uid': FieldValue.delete()});
@@ -783,7 +786,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                       itemCount: docs.length,
                       itemBuilder: (context, index) {
                         final data = docs[index].data() as Map<String, dynamic>;
-                        final isMe = data['senderId'] == widget.currentUser.uid;
+                        final isMe = data['senderId'] == _currentUid;
                         final String? fileUrl = data['fileUrl'] ?? data['imageUrl'];
                         final String type = data['type'] ?? (data['imageUrl'] != null ? 'image' : 'text');
                         

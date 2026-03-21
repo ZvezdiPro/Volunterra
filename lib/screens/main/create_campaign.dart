@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign_data.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/shared/constants.dart';
@@ -88,17 +89,26 @@ class _CreateCampaignState extends State<CreateCampaign> {
     }
   }
 
-  void _submitCampaign() async {
+  Future<void> _submitCampaign() async {
     setState(() {
       _loading = true;
       });
 
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final VolunteerUser? volunteer = Provider.of<VolunteerUser?>(context, listen: false);
+    final Object? userObj = Provider.of<Object?>(context, listen: false);
+    
+    String? uid;
+    if (userObj is VolunteerUser) {
+      uid = userObj.uid;
+    } else if (userObj is NGO) {
+      uid = userObj.id;
+    }
+
+    if (uid == null) return;
     
     try {
-      await DatabaseService(uid: volunteer!.uid).updateCampaignData(_data);
+      await DatabaseService(uid: uid).updateCampaignData(_data);
 
       navigator.pop();
 

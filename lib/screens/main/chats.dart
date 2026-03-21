@@ -6,6 +6,8 @@ import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/screens/main/helper_screens/chat_screen.dart'; 
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
+import 'package:provider/provider.dart';
+import 'package:volunteer_app/models/ngo.dart';
 
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key});
@@ -19,12 +21,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userObj = Provider.of<Object?>(context);
+    final bool isNgo = userObj is NGO;
+    final NGO? ngoUser = isNgo ? userObj : null;
+
     // Fetch current user details
     return Scaffold(
       backgroundColor: backgroundGrey,
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('volunteers') 
+            .collection(isNgo ? 'ngos' : 'volunteers') 
             .doc(currentUid)
             .snapshots(),
         builder: (context, userSnapshot) {
@@ -42,7 +48,22 @@ class _ChatsScreenState extends State<ChatsScreen> {
             );
           }
       
-          VolunteerUser currentUser = VolunteerUser.fromFirestore(userSnapshot.data!);
+          VolunteerUser currentUser;
+          if (isNgo && ngoUser != null) {
+            currentUser = VolunteerUser(
+              uid: ngoUser.id,
+              email: ngoUser.email,
+              firstName: ngoUser.name,
+              lastName: '',
+              interests: [],
+              createdAt: ngoUser.createdAt,
+              updatedAt: ngoUser.updatedAt,
+              avatarUrl: ngoUser.logoUrl,
+              isOrganizer: true,
+            );
+          } else {
+            currentUser = VolunteerUser.fromFirestore(userSnapshot.data!);
+          }
       
           // Fetch campaigns using the DatabaseService logic
           return StreamBuilder<List<Campaign>>(
@@ -64,7 +85,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
                       const Text("Нямате активни чатове", style: TextStyle(color: Colors.grey)),
-                      const Text("Запишете се за кампания!", style: TextStyle(color: Colors.grey)),
+                      Text(isNgo ? "Създай кампания!" : "Запишете се за кампания!", style: const TextStyle(color: Colors.grey)),
                     ],
                   ),
                 );

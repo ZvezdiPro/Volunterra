@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:intl/intl.dart';
 import 'package:volunteer_app/shared/constants.dart';
 import 'package:volunteer_app/shared/loading.dart';
 import 'package:volunteer_app/screens/main/helper_screens/public_profile_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/public_ngo_screen.dart';
 
 class CampaignDetailsScreen extends StatefulWidget {
   final Campaign campaign;
@@ -54,19 +56,19 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
     }
   }
 
-  void _showGuestActionMessage(BuildContext context) {
+  void _showGuestActionMessage(BuildContext context, {bool isNgo = false}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         backgroundColor: Colors.orange,
-        content: Center(child: Text('Тази функция е достъпна само за регистрирани потребители!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-        duration: Duration(seconds: 3),
+        content: Center(child: Text(isNgo ? 'Тази функция е достъпна само за доброволци!' : 'Тази функция е достъпна само за регистрирани потребители!', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+        duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  void _onBookmarkTap(BuildContext context, VolunteerUser? user, bool currentStatus) async {
+  void _onBookmarkTap(BuildContext context, VolunteerUser? user, bool currentStatus, {bool isNgo = false}) async {
     if (user == null) return;
 
     bool newStatus = !currentStatus;
@@ -85,7 +87,7 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
     }
 
     try {
-      await DatabaseService(uid: user.uid).toggleCampaignBookmark(widget.campaign.id, currentStatus);
+      await DatabaseService(uid: user.uid).toggleCampaignBookmark(widget.campaign.id, currentStatus, isNgo: isNgo);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -97,7 +99,15 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authUser = Provider.of<VolunteerUser?>(context);
+    final Object? userObj = Provider.of<Object?>(context);
+    final bool isNgo = userObj is NGO;
+    
+    VolunteerUser? authUser;
+    if (userObj is NGO) {
+      authUser = VolunteerUser.forAuth(uid: userObj.id);
+    } else if (userObj is VolunteerUser) {
+      authUser = userObj;
+    }
 
     if (authUser == null) {
       return const Scaffold(body: Center(child: Loading()));
@@ -105,19 +115,33 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
 
     final bool isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
 
-    return isGuest ? _buildPage(context, authUser, isBookmarked: false, isGuest: true)
-    : StreamBuilder<VolunteerUser?>(
-      stream: DatabaseService(uid: authUser.uid).volunteerUserData,
-      builder: (context, snapshot) {
-        VolunteerUser? user = snapshot.data ?? authUser;
-        bool isBookmarked = user.bookmarkedCampaignsIds.contains(widget.campaign.id);
-        return _buildPage(context, user, isBookmarked: isBookmarked, isGuest: isGuest);
-    });
+    if (isGuest) {
+      return _buildPage(context, authUser, isBookmarked: false, isGuest: true, isNgo: false);
+    }
+
+    if (isNgo) {
+      return StreamBuilder<NGO?>(
+        stream: DatabaseService(uid: authUser.uid).ngoData,
+        builder: (context, snapshot) {
+          NGO? ngo = snapshot.data ?? (userObj as NGO?);
+          bool isBookmarked = ngo?.bookmarkedCampaignsIds.contains(widget.campaign.id) ?? false;
+          return _buildPage(context, authUser, isBookmarked: isBookmarked, isGuest: false, isNgo: true);
+        }
+      );
+    } else {
+      return StreamBuilder<VolunteerUser?>(
+        stream: DatabaseService(uid: authUser.uid).volunteerUserData,
+        builder: (context, snapshot) {
+          VolunteerUser? user = snapshot.data ?? authUser;
+          bool isBookmarked = user?.bookmarkedCampaignsIds.contains(widget.campaign.id) ?? false;
+          return _buildPage(context, user, isBookmarked: isBookmarked, isGuest: false, isNgo: false);
+      });
+    }
   }
 
-  Scaffold _buildPage(BuildContext context, VolunteerUser user, {required bool isBookmarked, required bool isGuest}) {
+  Scaffold _buildPage(BuildContext context, VolunteerUser? user, {required bool isBookmarked, required bool isGuest, required bool isNgo}) {
     bool hasImage = widget.campaign.imageUrl.isNotEmpty;
-    Widget? bottomButton = widget.showRegisterButton ? _buildBottomButton(user, isGuest) : null;
+    Widget? bottomButton = widget.showRegisterButton && user != null ? _buildBottomButton(user, isGuest, isNgo) : null;
 
     return Scaffold(
       backgroundColor: backgroundGrey,
@@ -166,9 +190,12 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
                       ),
                       onPressed: () {
                         if (isGuest) {
-                          _showGuestActionMessage(context);
+                          _showGuestActionMessage(context, isNgo: false);
                         } else {
-                          _onBookmarkTap(context, user, isBookmarked);
+                          // Using a generic Bookmark method safely if user != null
+                          if (user != null) {
+                             _onBookmarkTap(context, user, isBookmarked, isNgo: isNgo);
+                          }
                         }
                       },
                     ),
@@ -217,20 +244,31 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
                       const SizedBox(height: 8),
 
                       // Organizer info
-                      FutureBuilder<VolunteerUser?>(
-                        future: DatabaseService(uid: widget.campaign.organizerId).getVolunteerUser(),
+                      FutureBuilder<Object?>(
+                        future: DatabaseService(uid: widget.campaign.organizerId).getOrganizer(),
                         builder: (context, organizerSnapshot) {
                           if (organizerSnapshot.hasData && organizerSnapshot.data != null) {
                             final organizer = organizerSnapshot.data!;
+                            final String name = organizer is NGO ? organizer.name : (organizer is VolunteerUser ? "${organizer.firstName} ${organizer.lastName}" : "Неизвестен");
+                            
                             return Center(
                               child: InkWell(
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PublicProfileScreen(volunteer: organizer),
-                                    ),
-                                  );
+                                  if (organizer is NGO) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PublicNgoScreen(ngo: organizer),
+                                      ),
+                                    );
+                                  } else if (organizer is VolunteerUser) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PublicProfileScreen(volunteer: organizer),
+                                      ),
+                                    );
+                                  }
                                 },
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
@@ -246,7 +284,7 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
                                       const Icon(Icons.account_circle_outlined, size: 18, color: Colors.blue),
                                       const SizedBox(width: 8),
                                       Text(
-                                        "Организатор: ${organizer.firstName} ${organizer.lastName}",
+                                        "Организатор: $name",
                                         style: TextStyle(
                                           color: Colors.blue.shade700,
                                           fontSize: 13,
@@ -491,7 +529,7 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
   }
 
   // Button at the bottom of the screen
-  Widget _buildBottomButton(VolunteerUser user, bool isGuest) {
+  Widget _buildBottomButton(VolunteerUser user, bool isGuest, bool isNgo) {
     bool isAlreadyRegistered = widget.campaign.registeredVolunteersUids.contains(user.uid);
     bool isEnded = widget.campaign.status == 'ended' || widget.campaign.endDate.isBefore(DateTime.now());
     bool isOrganizer = widget.campaign.organizerId == user.uid;
@@ -522,8 +560,8 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
               elevation: 0,
             ),
             onPressed: (isEnded || isAlreadyRegistered || isOrganizer) ? null : () async {
-              if (isGuest) {
-                _showGuestActionMessage(context);
+              if (isGuest || isNgo) {
+                _showGuestActionMessage(context, isNgo: isNgo);
                 return;
               }
               try {

@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +6,8 @@ import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/registration_data.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/models/campaign_data.dart';
+import 'package:volunteer_app/models/ngo.dart';
+import 'package:volunteer_app/models/ngo_registration_data.dart';
 
 class DatabaseService {
   final String? uid;
@@ -14,6 +15,7 @@ class DatabaseService {
 
   final CollectionReference volunteerCollection = FirebaseFirestore.instance.collection('volunteers');
   final CollectionReference campaignCollection = FirebaseFirestore.instance.collection('campaigns');
+  final CollectionReference ngoCollection = FirebaseFirestore.instance.collection('ngos');
 
   Future<void> updateUserData(
     RegistrationData data, {
@@ -86,10 +88,24 @@ class DatabaseService {
   // Mark email as verified
   Future<void> markEmailAsVerified() async {
     if (uid == null) return;
-    return await volunteerCollection.doc(uid).update({
-      'isEmailVerified': true,
-      'updatedAt': DateTime.now(),
-    });
+    
+    // Check if Volunteer doc exists before updating
+    final volunteerDoc = await volunteerCollection.doc(uid).get();
+    if (volunteerDoc.exists) {
+      await volunteerCollection.doc(uid).update({
+        'isEmailVerified': true,
+        'updatedAt': DateTime.now(),
+      });
+    }
+
+    // Check if NGO doc exists before updating
+    final ngoDoc = await ngoCollection.doc(uid).get();
+    if (ngoDoc.exists) {
+      await ngoCollection.doc(uid).update({
+        'isEmailVerified': true,
+        'updatedAt': DateTime.now(),
+      });
+    }
   }
 
   // Method to create or update campaign data
@@ -133,6 +149,24 @@ class DatabaseService {
     } else {
       return null;
     }
+  }
+
+  // Method to get organizer (can be VolunteerUser or NGO)
+  Future<Object?> getOrganizer() async {
+    if (uid == null) return null;
+    
+    // Check NGO first because ghost VolunteerUser documents exist for NGOs due to FCM token generation
+    final ngoDoc = await ngoCollection.doc(uid).get();
+    if (ngoDoc.exists) {
+      return NGO.fromFirestore(ngoDoc);
+    }
+
+    final volunteerDoc = await volunteerCollection.doc(uid).get();
+    if (volunteerDoc.exists) {
+      return VolunteerUser.fromFirestore(volunteerDoc);
+    }
+    
+    return null;
   }
 
   // Method to get a single campaign as a Campaign object
@@ -242,6 +276,14 @@ class DatabaseService {
   // Update FCM token
   Future<void> updateFCMToken(String token) async {
     if (uid == null) return;
+    
+    final ngoDoc = await ngoCollection.doc(uid).get();
+    if (ngoDoc.exists) {
+      return await ngoCollection.doc(uid).set({
+        'fcmToken': token,
+      }, SetOptions(merge: true));
+    }
+    
     return await volunteerCollection.doc(uid).set({
       'fcmToken': token,
     }, SetOptions(merge: true));
@@ -250,10 +292,22 @@ class DatabaseService {
   // Update user location
   Future<void> updateUserLocation(double latitude, double longitude) async {
     if (uid == null) return;
-    return await volunteerCollection.doc(uid).update({
-      'lastKnownLatitude': latitude,
-      'lastKnownLongitude': longitude,
-    });
+    
+    final ngoDoc = await ngoCollection.doc(uid).get();
+    if (ngoDoc.exists) {
+      return await ngoCollection.doc(uid).update({
+        'lastKnownLatitude': latitude,
+        'lastKnownLongitude': longitude,
+      });
+    }
+    
+    final volunteerDoc = await volunteerCollection.doc(uid).get();
+    if (volunteerDoc.exists) {
+      return await volunteerCollection.doc(uid).update({
+        'lastKnownLatitude': latitude,
+        'lastKnownLongitude': longitude,
+      });
+    }
   }
 
   // Upload image to Firebase Storage and return the download URL
@@ -286,15 +340,12 @@ class DatabaseService {
     }
   }
 
-  Future<void> toggleCampaignBookmark(
-    String campaignId,
-    bool isCurrentlyBookmarked,
-  ) async {
+  // Bookmark or unbookmark a campaign
+  Future<void> toggleCampaignBookmark(String campaignId, bool currentStatus, {bool isNgo = false}) async {
     if (uid == null) return;
-
-    return await volunteerCollection.doc(uid).update({
-      // If currently bookmarked, remove it; otherwise, add it
-      'bookmarkedCampaignsIds': isCurrentlyBookmarked
+    final collection = isNgo ? ngoCollection : volunteerCollection;
+    return await collection.doc(uid).update({
+      'bookmarkedCampaignsIds': currentStatus
           ? FieldValue.arrayRemove([campaignId])
           : FieldValue.arrayUnion([campaignId]),
     });
@@ -410,6 +461,69 @@ class DatabaseService {
   Future<void> leaveCampaign(String campaignId) async {
     return await campaignCollection.doc(campaignId).update({
       'registeredVolunteersUids': FieldValue.arrayRemove([uid]),
+    });
+  }
+
+  // Create NGO document
+  Future<void> createNgo(NgoRegistrationData data) async {
+    if (uid == null) return;
+    
+    // Upload images if any
+    String? logoUrl;
+    if (data.logoImage != null) {
+      logoUrl = await uploadImage('ngo_logos/$uid', data.logoImage!, 'logo_$uid');
+    }
+    
+    String? bannerUrl;
+    if (data.bannerImage != null) {
+      bannerUrl = await uploadImage('ngo_banners/$uid', data.bannerImage!, 'banner_$uid');
+    }
+
+    return await ngoCollection.doc(uid).set({
+      'name': data.name,
+      'registrationNumber': data.registrationNumber,
+      'description': data.description,
+      'email': data.email,
+      'phone': data.phone,
+      'website': data.website.isEmpty ? null : data.website,
+      'address': data.address,
+      'socialLinks': {
+        if (data.facebookLink.isNotEmpty) 'facebook': data.facebookLink,
+        if (data.instagramLink.isNotEmpty) 'instagram': data.instagramLink,
+      },
+      'logoUrl': logoUrl,
+      'coverImageUrl': bannerUrl,
+      'isVerified': false,
+      'isEmailVerified': false,
+      'ownerId': uid,
+      'admins': [uid],
+      'members': [],
+      'followers': [],
+      'bookmarkedCampaignsIds': [],
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': DateTime.now(),
+    });
+  }
+
+  // Get NGO
+  Future<NGO?> getNgo() async {
+    if (uid == null) return null;
+    DocumentSnapshot doc = await ngoCollection.doc(uid).get();
+    if (doc.exists) {
+      return NGO.fromFirestore(doc);
+    } else {
+      return null;
+    }
+  }
+
+  // Stream to get NGO data from Firestore constantly
+  Stream<NGO?> get ngoData {
+    return ngoCollection.doc(uid).snapshots().map((doc) {
+      if (doc.exists) {
+        return NGO.fromFirestore(doc);
+      } else {
+        return null;
+      }
     });
   }
 }

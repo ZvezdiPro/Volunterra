@@ -52,8 +52,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final VolunteerUser? providerVolunteer = Provider.of<VolunteerUser?>(context);
-    final VolunteerUser? volunteer = _updatedVolunteer ?? providerVolunteer;
+
+    final Object? userObj = Provider.of<Object?>(context);
+    final VolunteerUser? providerVolunteer = userObj is VolunteerUser ? userObj : null;
+
+    // Use widget.volunteer if provided, otherwise fallback to provider
+    VolunteerUser? volunteer = _updatedVolunteer ?? providerVolunteer;
 
     // If volunteer is null, show a screen indicating the error
     if (volunteer == null) {

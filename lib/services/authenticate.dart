@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:volunteer_app/models/registration_data.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/models/ngo_registration_data.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
@@ -12,18 +13,22 @@ class AuthService {
   int loginType = 0;
 
   // Auth change user stream
-  // Maps the Firebase User to a VolunteerUser using asyncMap
-  // and the helper method which uses the id to fetch the full data
-  Stream<VolunteerUser?> get user {
+  // Maps the Firebase User to an Object (NGO or VolunteerUser)
+  Stream<Object?> get user {
     return _auth.userChanges().asyncMap(_fullUserFromFirebaseUser);
   }
 
   // Create user object based on Firebase User
   // The method is asynchronous because it fetches additional data from Firestore (which takes time)
-  Future<VolunteerUser?> _fullUserFromFirebaseUser(User? user) async {
+  Future<Object?> _fullUserFromFirebaseUser(User? user) async {
     if (user == null) {
       return null; 
     }
+    
+    // Check if the user is an NGO first
+    final ngo = await DatabaseService(uid: user.uid).getNgo();
+    if (ngo != null) return ngo;
+
     // Get the VolunteerUser from the database using the uid or return the default auth-only object
     return await DatabaseService(uid: user.uid).getVolunteerUser() ?? VolunteerUser.forAuth(uid: user.uid);
   }
@@ -62,6 +67,32 @@ class AuthService {
       await DatabaseService(uid: user!.uid).updateUserData(data);
       // Return the VolunteerUser object using both Firebase User (for the uid) and registration data
       return await _volunteerFromFirebaseUser(user, data);
+    }
+    catch (e) {
+      // print(e.toString());
+      return null;
+    }
+  }
+
+  // Register with email and password for NGO
+  Future<Object?> registerNgoWithEmailAndPassword(String email, String password, NgoRegistrationData data) async {
+    try {
+      // Attempt to create the user
+      UserCredential result = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      // Get the newly created firebase (authenticated) user (could be null)
+      User? user = result.user;
+      
+      // Send email verification
+      await user?.sendEmailVerification();
+      
+      // Create a new document for the ngo with the uid using the registration data
+      await DatabaseService(uid: user!.uid).createNgo(data);
+      
+      // Force a stream update so Wrapper picks up the new NGO document immediately
+      await user.reload();
+      
+      // Return the newly created NGO object
+      return await DatabaseService(uid: user.uid).getNgo();
     }
     catch (e) {
       // print(e.toString());

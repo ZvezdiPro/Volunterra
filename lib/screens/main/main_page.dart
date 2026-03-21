@@ -3,11 +3,14 @@ import 'package:volunteer_app/screens/main/home.dart';
 import 'package:volunteer_app/screens/main/events_page.dart';
 import 'package:volunteer_app/screens/main/chats.dart';
 import 'package:volunteer_app/screens/main/profile.dart';
+import 'package:volunteer_app/screens/main/ngo_profile.dart';
 import 'package:volunteer_app/services/authenticate.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/services/fcm_service.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class MainPage extends StatefulWidget {
@@ -65,6 +68,9 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final userObj = Provider.of<Object?>(context);
+    final bool isNgo = userObj is NGO;
+    final bool isVerifiedNgo = isNgo && userObj.isVerified;
     
     return Scaffold(
       backgroundColor: backgroundGrey,
@@ -86,20 +92,39 @@ class _MainPageState extends State<MainPage> {
       ),
 
       // The four pages to navigate between
-      body: IndexedStack(
-        index: currentPageIndex,
+      body: Column(
         children: [
-          HomeScreen(
-            onGoToEvents: () {
-              setState(() {
-                // EventsPage index is 1
-                currentPageIndex = 1;
-              });
-            },
+          if (isNgo && !isVerifiedNgo)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              color: Colors.orange.shade100,
+              child: const Text(
+                'Вашият профил се преглежда за одобрение. Ще се свържем с вас скоро.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold),
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: currentPageIndex,
+              children: [
+                HomeScreen(
+                  onGoToEvents: () {
+                    setState(() {
+                      // EventsPage index is 1
+                      currentPageIndex = 1;
+                    });
+                  },
+                ),
+                const EventsPage(), 
+                const ChatsScreen(),
+                isNgo
+                  ? const NGOProfilePage()
+                  : const ProfilePage(),
+              ],
+            ),
           ),
-          const EventsPage(), 
-          const ChatsScreen(),
-          const ProfilePage(),
         ],
       ),
 
