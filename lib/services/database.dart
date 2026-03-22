@@ -527,7 +527,7 @@ class DatabaseService {
     });
   }
 
-  // Stream to get NGOs the user follows or is a member of
+  // Stream to get NGOs the user follows, is a member of, or is an admin of
   Stream<List<NGO>> get userNgos {
     if (uid == null) return Stream.value([]);
 
@@ -536,6 +536,7 @@ class DatabaseService {
           Filter.or(
             Filter('followers', arrayContains: uid),
             Filter('members', arrayContains: uid),
+            Filter('admins', arrayContains: uid),
           ),
         )
         .snapshots()
@@ -566,6 +567,22 @@ class DatabaseService {
     if (uid == null) return;
     return await ngoCollection.doc(uid).update({
       'members': FieldValue.arrayRemove([volunteerUid])
+    });
+  }
+
+  // Add an admin to NGO
+  Future<void> addNgoAdmin(String volunteerUid) async {
+    if (uid == null) return;
+    return await ngoCollection.doc(uid).update({
+      'admins': FieldValue.arrayUnion([volunteerUid])
+    });
+  }
+
+  // Remove an admin from NGO
+  Future<void> removeNgoAdmin(String volunteerUid) async {
+    if (uid == null) return;
+    return await ngoCollection.doc(uid).update({
+      'admins': FieldValue.arrayRemove([volunteerUid])
     });
   }
 

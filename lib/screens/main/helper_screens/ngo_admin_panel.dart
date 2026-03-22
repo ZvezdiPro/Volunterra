@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/services/database.dart';
@@ -86,6 +87,16 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
         return;
       }
       List<VolunteerUser> users = await _db.getVolunteersFromList(_currentNgo.members);
+      
+      // Sort so admins are at the top
+      users.sort((a, b) {
+        final aIsAdmin = _currentNgo.admins.contains(a.uid);
+        final bIsAdmin = _currentNgo.admins.contains(b.uid);
+        if (aIsAdmin && !bIsAdmin) return -1;
+        if (!aIsAdmin && bIsAdmin) return 1;
+        return a.firstName.compareTo(b.firstName);
+      });
+
       if (mounted) {
         setState(() {
           _members = users;
@@ -138,6 +149,8 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
       };
 
       await DatabaseService(uid: _currentNgo.id).updateNgoInfo(updateData);
+      
+      final updatedNgo = await DatabaseService(uid: _currentNgo.id).getNgo();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -147,6 +160,9 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
           ),
         );
         setState(() {
+          if (updatedNgo != null) {
+            _currentNgo = updatedNgo;
+          }
           _hasChanges = false;
           _isSaving = false;
         });
@@ -191,10 +207,72 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
     if (confirm && mounted) {
       try {
         await DatabaseService(uid: _currentNgo.id).removeNgoMember(user.uid);
+        
+        // Also remove admin rights if they were removed from the org
+        if (_currentNgo.admins.contains(user.uid)) {
+          await DatabaseService(uid: _currentNgo.id).removeNgoAdmin(user.uid);
+          _currentNgo.admins.remove(user.uid);
+        }
+
         setState(() {
           _members!.removeWhere((m) => m.uid == user.uid);
           _currentNgo.members.remove(user.uid);
         });
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Грешка: $e")));
+      }
+    }
+  }
+
+  Future<void> _toggleAdminStatus(VolunteerUser user) async {
+    if (user.uid == _currentNgo.ownerId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Не можете да промените правата на създателя на организацията.")),
+      );
+      return;
+    }
+
+    final bool isAdmin = _currentNgo.admins.contains(user.uid);
+    final String actionText = isAdmin ? "премахнете администраторските права на" : "направите администратор";
+    
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Промяна на права"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Сигурни ли сте, че искате да $actionText ${user.firstName}?"),
+            if (!isAdmin) ...[
+              const SizedBox(height: 10),
+              const Text("Новият администратор ще може да:", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 5),
+              const Text("• Добавя и премахва членове"),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Отказ", style: TextStyle(color: Colors.black87))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Потвърди", style: TextStyle(fontWeight: FontWeight.bold, color: greenPrimary))),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm && mounted) {
+      try {
+        if (isAdmin) {
+          await DatabaseService(uid: _currentNgo.id).removeNgoAdmin(user.uid);
+          setState(() {
+            _currentNgo.admins.remove(user.uid);
+          });
+        } else {
+          await DatabaseService(uid: _currentNgo.id).addNgoAdmin(user.uid);
+          setState(() {
+            _currentNgo.admins.add(user.uid);
+          });
+        }
+        _loadMembers();
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Грешка: $e")));
       }
@@ -241,7 +319,7 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
         child: Scaffold(
           backgroundColor: backgroundGrey,
           appBar: AppBar(
-            title: const Text("Управлявай НПО", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+            title: Text("Управлявай ${_currentNgo.name}", style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
             backgroundColor: Colors.white,
             elevation: 1,
             iconTheme: const IconThemeData(color: Colors.black87),
@@ -271,6 +349,9 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
   }
 
   Widget _buildGeneralTab() {
+    final userObj = Provider.of<Object?>(context);
+    final isNgoOwner = userObj is NGO && userObj.id == _currentNgo.id;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
       child: Form(
@@ -280,43 +361,90 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
           children: [
             const Text("Основна информация", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
-            Text("Променете основните детайли на организацията", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            Text(isNgoOwner ? "Променете основните детайли на организацията" : "Основни детайли на организацията", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            
+            if (!isNgoOwner) ...[
+              const SizedBox(height: 15),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Забележка: Редактирането на тези полета може да се извършва само от акаунта на организацията.",
+                        style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
-            _buildTextField('Име на организацията', _nameController, "Напр. Фондация Заедно", maxLength: 50),
-            _buildTextField('Описание', _descriptionController, "Кратко описание...", maxLines: 4, maxLength: 500),
+            _buildTextField('Име на организацията', _nameController, "Напр. Фондация Заедно", maxLength: 50, isEnabled: isNgoOwner),
+            _buildTextField('Описание', _descriptionController, "Кратко описание...", maxLines: 4, maxLength: 500, isEnabled: isNgoOwner),
             
             const SizedBox(height: 10),
             const Text("Контакти", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            _buildTextField('Имейл', _emailController, "contact@example.com", keyboardType: TextInputType.emailAddress),
-            _buildTextField('Телефон', _phoneController, "+359888888888", keyboardType: TextInputType.phone),
-            _buildTextField('Адрес', _addressController, "Град, Улица..."),
-            _buildTextField('Уебсайт', _websiteController, "https://example.com", isRequired: false),
+            _buildTextField('Имейл', _emailController, "contact@example.com", keyboardType: TextInputType.emailAddress, isEnabled: isNgoOwner),
+            _buildTextField('Телефон', _phoneController, "+359888888888", keyboardType: TextInputType.phone, isEnabled: isNgoOwner),
+            _buildTextField('Адрес', _addressController, "Град, Улица...", isEnabled: isNgoOwner),
+            _buildTextField('Уебсайт', _websiteController, "https://example.com", isRequired: false, isEnabled: isNgoOwner),
             
             const SizedBox(height: 10),
             const Text("Социални мрежи", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-            _buildTextField('Facebook профил', _fbController, "Напр. volunteersBG", isRequired: false),
-            _buildTextField('Instagram профил', _igController, "Напр. volunteersBG", isRequired: false),
+            _buildTextField('Facebook профил', _fbController, "Напр. volunteersBG", isRequired: false, isEnabled: isNgoOwner),
+            _buildTextField('Instagram профил', _igController, "Напр. volunteersBG", isRequired: false, isEnabled: isNgoOwner),
 
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: greenPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                  disabledBackgroundColor: Colors.grey[300],
+            if (isNgoOwner) ...[
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
+                  icon: _isSaving
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.save, color: Colors.white),
+                  label: _isSaving
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Запази промените",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: greenPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                    disabledBackgroundColor: Colors.grey[300],
+                  ),
                 ),
-                child: _isSaving
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text("Запази промените", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
               ),
-            ),
+            ],
             const SizedBox(height: 20),
           ],
         ),
@@ -324,7 +452,7 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, String hint, {int maxLines = 1, int? maxLength, bool isRequired = true, TextInputType? keyboardType}) {
+  Widget _buildTextField(String label, TextEditingController controller, String hint, {int maxLines = 1, int? maxLength, bool isRequired = true, TextInputType? keyboardType, bool isEnabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,10 +463,11 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
           maxLines: maxLines,
           maxLength: maxLength,
           keyboardType: keyboardType,
+          enabled: isEnabled,
           decoration: textInputDecoration.copyWith(
             hintText: hint,
             counterText: "",
-            fillColor: Colors.white,
+            fillColor: isEnabled ? Colors.white : Colors.grey[100],
           ),
           onChanged: (_) => _onFieldChanged(),
           validator: isRequired ? (val) {
@@ -352,6 +481,9 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
   }
 
   Widget _buildMembersTab() {
+    final userObj = Provider.of<Object?>(context);
+    final isNgoOwner = userObj is NGO && userObj.id == _currentNgo.id;
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -380,12 +512,51 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
                               backgroundImage: vol.avatarUrl != null ? NetworkImage(vol.avatarUrl!) : null,
                               child: vol.avatarUrl == null ? Text(vol.firstName[0], style: const TextStyle(color: Colors.white)) : null,
                             ),
-                            title: Text("${vol.firstName} ${vol.lastName}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(vol.email),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.person_remove, color: Colors.red),
-                              tooltip: "Премахни от организацията",
-                              onPressed: () => _confirmRemoveMember(vol),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    "${vol.firstName} ${vol.lastName}",
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (_currentNgo.admins.contains(vol.uid))
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: accentAmber.withAlpha(30),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      "Администратор",
+                                      style: TextStyle(color: accentAmber, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  )
+                              ],
+                            ),
+                            subtitle: Text(vol.email, style: TextStyle(color: Colors.grey[600])),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isNgoOwner)
+                                  IconButton(
+                                    icon: Icon(
+                                      _currentNgo.admins.contains(vol.uid) ? Icons.admin_panel_settings : Icons.admin_panel_settings_outlined,
+                                      color: _currentNgo.admins.contains(vol.uid) ? accentAmber : Colors.grey,
+                                    ),
+                                    tooltip: _currentNgo.admins.contains(vol.uid) ? "Премахни администратор" : "Направи администратор",
+                                    onPressed: () => _toggleAdminStatus(vol),
+                                  ),
+                                if (isNgoOwner || !_currentNgo.admins.contains(vol.uid))
+                                  IconButton(
+                                    icon: const Icon(Icons.person_remove, color: Colors.red),
+                                    tooltip: "Премахни от организацията",
+                                    onPressed: () => _confirmRemoveMember(vol),
+                                  ),
+                              ],
                             ),
                             onTap: () {
                               Navigator.push(

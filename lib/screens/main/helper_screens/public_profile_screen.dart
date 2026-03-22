@@ -5,6 +5,8 @@ import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
+import 'package:volunteer_app/models/ngo.dart';
+import 'package:volunteer_app/screens/main/helper_screens/public_ngo_screen.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final VolunteerUser volunteer;
@@ -175,6 +177,115 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       },
                     ),
                   ),
+                  
+                const SizedBox(height: 20.0),
+
+                // NGOs
+                StreamBuilder<List<NGO>>(
+                  stream: DatabaseService(uid: widget.volunteer.uid).userNgos,
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final ngos = snapshot.data!;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Организации',
+                            style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(height: 10.0),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12.0),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: const Offset(0, 2)),
+                            ],
+                          ),
+                          child: ListView.separated(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: ngos.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1, indent: 30, endIndent: 30),
+                            itemBuilder: (context, index) {
+                              final ngo = ngos[index];
+                              final isAdmin = ngo.admins.contains(widget.volunteer.uid);
+                              final isMember = ngo.members.contains(widget.volunteer.uid);
+                              
+                              Color tagColor;
+                              String tagText;
+                              if (isAdmin) {
+                                tagColor = accentAmber;
+                                tagText = 'Администратор';
+                              } else if (isMember) {
+                                tagColor = blueSecondary;
+                                tagText = 'Член';
+                              } else {
+                                tagColor = greenPrimary;
+                                tagText = 'Следва';
+                              }
+
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.grey.shade200,
+                                  backgroundImage: (ngo.logoUrl != null && ngo.logoUrl!.isNotEmpty)
+                                      ? NetworkImage(ngo.logoUrl!) as ImageProvider
+                                      : null,
+                                  child: (ngo.logoUrl == null || ngo.logoUrl!.isEmpty)
+                                      ? const Icon(Icons.business, color: Colors.grey, size: 20)
+                                      : null,
+                                ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        ngo.name,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: tagColor.withAlpha(30),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        tagText,
+                                        style: TextStyle(color: tagColor, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    )
+                                  ],
+                                ),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => PublicNgoScreen(ngo: ngo),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 20.0),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
           ),

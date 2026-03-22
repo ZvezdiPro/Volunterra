@@ -16,6 +16,7 @@ class NGO {
   final String ownerId;
   final List<String> followers;
   final List<String> members;
+  final List<String> admins;
   final List<String> bookmarkedCampaignsIds;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -36,6 +37,7 @@ class NGO {
     required this.ownerId,
     required this.followers,
     this.members = const [],
+    this.admins = const [],
     this.bookmarkedCampaignsIds = const [],
     required this.createdAt,
     required this.updatedAt,
@@ -59,6 +61,7 @@ class NGO {
       ownerId: data['ownerId'] ?? '',
       followers: List<String>.from(data['followers'] ?? []),
       members: List<String>.from(data['members'] ?? []),
+      admins: List<String>.from(data['admins'] ?? [data['ownerId'] ?? '']),
       bookmarkedCampaignsIds: List<String>.from(data['bookmarkedCampaignsIds'] ?? []),
       createdAt: (data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now()),
       updatedAt: (data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : DateTime.now()),

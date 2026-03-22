@@ -7,6 +7,7 @@ import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/ngo_admin_panel.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PublicNgoScreen extends StatefulWidget {
@@ -52,6 +53,7 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
 
         final NGO ngo = snapshot.data ?? widget.ngo;
         final bool isSameNgo = userObj is NGO && userObj.id == ngo.id;
+        final bool isVolunteerAdmin = userObj is VolunteerUser && ngo.admins.contains(userObj.uid);
 
         return Scaffold(
           backgroundColor: backgroundGrey,
@@ -101,6 +103,43 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
+
+                if (isVolunteerAdmin) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 45,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (!ngo.isVerified) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Профилът трябва да бъде одобрен от администратор, за да управлявате НПО.',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NgoAdminPanel(ngo: ngo),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+                      label: const Text('Управлявай НПО', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: blueSecondary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 if (!isSameNgo && (userObj == null || userObj is VolunteerUser))
                   SizedBox(

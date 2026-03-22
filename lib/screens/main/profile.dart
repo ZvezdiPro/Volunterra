@@ -373,9 +373,21 @@ class _ProfilePageState extends State<ProfilePage> {
                           separatorBuilder: (context, index) => Divider(height: 1, indent: 30, endIndent: 30),
                           itemBuilder: (context, index) {
                             final ngo = ngos[index];
+                            final isAdmin = ngo.admins.contains(volunteer.uid);
                             final isMember = ngo.members.contains(volunteer.uid);
-                            final tagColor = isMember ? blueSecondary : greenPrimary;
-                            final tagText = isMember ? 'Членувате' : 'Следвате';
+                            
+                            Color tagColor;
+                            String tagText;
+                            if (isAdmin) {
+                              tagColor = accentAmber;
+                              tagText = 'Администратор';
+                            } else if (isMember) {
+                              tagColor = blueSecondary;
+                              tagText = 'Членувате';
+                            } else {
+                              tagColor = greenPrimary;
+                              tagText = 'Следвате';
+                            }
 
                             return ListTile(
                               leading: CircleAvatar(
