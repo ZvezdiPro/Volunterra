@@ -249,6 +249,8 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
               const Text("Новият администратор ще може да:", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
               const Text("• Добавя и премахва членове"),
+              const SizedBox(height: 2),
+              const Text("• Изпраща съобщения в инфо канала"),
             ],
           ],
         ),

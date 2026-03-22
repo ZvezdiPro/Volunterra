@@ -63,6 +63,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       backgroundColor: backgroundGrey, 
       appBar: AppBar(
         title: const Text('Профил на доброволец', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20)),
+        centerTitle: true,
         backgroundColor: backgroundGrey,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),

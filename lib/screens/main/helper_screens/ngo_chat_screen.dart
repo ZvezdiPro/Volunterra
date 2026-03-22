@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -18,40 +17,39 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart'; 
 import 'package:share_plus/share_plus.dart';
-import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/ngo.dart';
-import 'package:volunteer_app/screens/main/helper_screens/campaign_admin_panel.dart';
-import 'package:volunteer_app/screens/main/helper_screens/campaign_info_screen.dart';
-import 'package:volunteer_app/services/database.dart';
+import 'package:volunteer_app/screens/main/helper_screens/ngo_members_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/public_ngo_screen.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/widgets/chat_bubbles.dart';
 
-// Main screen for campaign chat widget
-class CampaignChatScreen extends StatefulWidget {
-  final Campaign campaign;
+// Main screen for NGO chat widget
+class NgoChatScreen extends StatefulWidget {
+  final NGO ngo;
   final dynamic currentUser;
 
-  const CampaignChatScreen({
+  const NgoChatScreen({
     super.key,
-    required this.campaign,
+    required this.ngo,
     required this.currentUser,
   });
 
   @override
-  State<CampaignChatScreen> createState() => _CampaignChatScreenState();
+  State<NgoChatScreen> createState() => _NgoChatScreenState();
 }
 
-class _CampaignChatScreenState extends State<CampaignChatScreen> {
+class _NgoChatScreenState extends State<NgoChatScreen> {
   // State variables
   Map<String, String>? _replyMessage;
   Map<String, String>? _editingMessage;
   bool _isUploading = false;
   bool _isSharing = false;
+  bool _showInfoBanner = true;
 
   String get _currentUid => widget.currentUser is NGO ? widget.currentUser.id : widget.currentUser.uid;
   String get _currentName => widget.currentUser is NGO ? widget.currentUser.name : widget.currentUser.firstName;
 
-  bool get _isOrganizer => widget.campaign.organizerId == _currentUid;
+  bool get _canSendMessages => widget.ngo.admins.contains(_currentUid) || widget.ngo.id == _currentUid;
 
   // Helper method to format bytes to human-readable string
   String _formatBytes(int bytes, int decimals) {
@@ -159,9 +157,9 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
   // Pin message
   Future<void> _pinMessage(String messageId, String text, String type) async {
-    if (!_isOrganizer) return;
+    if (!_canSendMessages) return;
     try {
-      await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
+      await FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).update({
         'pinnedMessage': {
           'id': messageId,
           'text': text,
@@ -176,9 +174,9 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   }
 
   Future<void> _unpinMessage() async {
-    if (!_isOrganizer) return;
+    if (!_canSendMessages) return;
     try {
-      await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
+      await FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).update({
         'pinnedMessage': FieldValue.delete(),
       });
     } catch (e) {
@@ -203,8 +201,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
     try {
       await FirebaseFirestore.instance
-          .collection('campaigns')
-          .doc(widget.campaign.id)
+          .collection('ngos')
+          .doc(widget.ngo.id)
           .collection('messages')
           .doc(originalMessageId)
           .update({
@@ -224,7 +222,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     setState(() => _isUploading = true);
     try {
       String fileName = "${DateTime.now().millisecondsSinceEpoch}.$ext";
-      Reference storageRef = FirebaseStorage.instance.ref().child('$folder/${widget.campaign.id}/$fileName');
+      Reference storageRef = FirebaseStorage.instance.ref().child('$folder/${widget.ngo.id}/$fileName');
       
       await storageRef.putFile(file);
       String downloadUrl = await storageRef.getDownloadURL();
@@ -250,6 +248,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     String? contactName,
     String? contactPhone,
   }) async {
+    if (!_canSendMessages) return;
+
     final replyData = _replyMessage;
     if (_replyMessage != null) {
       setState(() {
@@ -259,8 +259,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
     try {
       await FirebaseFirestore.instance
-          .collection('campaigns')
-          .doc(widget.campaign.id)
+          .collection('ngos')
+          .doc(widget.ngo.id)
           .collection('messages')
           .add({
         'text': text ?? '',
@@ -335,7 +335,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
             String size = _formatBytes(result.files.single.size, 1);
             
             setState(() => _isUploading = true);
-            Reference ref = FirebaseStorage.instance.ref().child('chat_files/${widget.campaign.id}/${result.files.single.name}');
+            Reference ref = FirebaseStorage.instance.ref().child('chat_files/${widget.ngo.id}/${result.files.single.name}');
             await ref.putFile(file);
             String url = await ref.getDownloadURL();
             _sendMessage(fileUrl: url, type: 'file', fileName: result.files.single.name, fileSize: size);
@@ -406,7 +406,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   // Toggle reaction
   Future<void> _toggleReaction(String docId, String emoji, Map<String, dynamic> currentReactions) async {
     final uid = _currentUid;
-    final docRef = FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).collection('messages').doc(docId);
+    final docRef = FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).collection('messages').doc(docId);
     if (currentReactions[uid] == emoji) {
        await docRef.update({'reactions.$uid': FieldValue.delete()});
     } else {
@@ -441,17 +441,18 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               ),
               const Divider(height: 1),
               
-              // Response button
-              ListTile(
-                leading: const Icon(Icons.reply, color: Colors.blue),
-                title: const Text('Отговори'),
-                onTap: () {
-                  Navigator.pop(context);
-                  setState(() {
-                    _replyMessage = {'id': docId, 'name': senderName, 'text': messageText.isEmpty ? (type == 'text' ? '' : 'Медия') : messageText};
-                  });
-                },
-              ),
+              // Response button - ONLY if user can send messages
+              if (_canSendMessages)
+                ListTile(
+                  leading: const Icon(Icons.reply, color: Colors.blue),
+                  title: const Text('Отговори'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _replyMessage = {'id': docId, 'name': senderName, 'text': messageText.isEmpty ? (type == 'text' ? '' : 'Медия') : messageText};
+                    });
+                  },
+                ),
 
               // Save button
               if (fileUrl != null && fileUrl.isNotEmpty)
@@ -480,8 +481,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                 },
               ),
 
-              // Pin button (only for organizers)
-              if (_isOrganizer)
+              // Pin button (only for admins)
+              if (_canSendMessages)
                 ListTile(
                   leading: const Icon(Icons.push_pin, color: Colors.orange),
                   title: const Text('Закачи съобщение'),
@@ -509,7 +510,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Копирано!")));
                   },
                 ),
-              if (isMe && type == 'text' && messageText.isNotEmpty)
+              if (isMe && type == 'text' && messageText.isNotEmpty && _canSendMessages)
                 ListTile(
                   leading: const Icon(Icons.edit, color: Colors.purple),
                   title: const Text('Редактирай'),
@@ -520,7 +521,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     });
                   },
                 ),
-              if (isMe || _isOrganizer)
+              if ((isMe || _canSendMessages) && _canSendMessages)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
                   title: const Text('Изтрий', style: TextStyle(color: Colors.red)),
@@ -529,13 +530,13 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
                     // Check if the message is pinned and unpin it if so
                     try {
-                      final campaignDoc = await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).get();
-                      if (campaignDoc.exists) {
-                        final data = campaignDoc.data() as Map<String, dynamic>;
+                      final ngoDoc = await FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).get();
+                      if (ngoDoc.exists) {
+                        final data = ngoDoc.data() as Map<String, dynamic>;
                         if (data.containsKey('pinnedMessage')) {
                           final pinned = data['pinnedMessage'] as Map<String, dynamic>;
                           if (pinned['id'] == docId) {
-                            await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
+                            await FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).update({
                               'pinnedMessage': FieldValue.delete(),
                             });
                           }
@@ -545,7 +546,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                       debugPrint("Error checking/unpinning message: $e");
                     }
 
-                    FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).collection('messages').doc(docId).delete();
+                    FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).collection('messages').doc(docId).delete();
                   },
                 ),
             ],
@@ -563,76 +564,6 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     return currentMsgTime.day != previousMsgTime.day;
   }
 
-  Future<void> _openAdminPanel() async {
-    final bool? campaignEnded = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CampaignAdminPanel(
-          campaign: widget.campaign,
-        ),
-      ),
-    );
-
-    if (campaignEnded == true) {
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    }
-  }
-
-  void _confirmLeaveCampaign(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: const Text("Напускане"),
-          content: const Text("Сигурни ли сте, че искате да се отпишете от тази кампания?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text("Отказ", style: TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(ctx).pop(); 
-
-                final user = FirebaseAuth.instance.currentUser;
-
-                if (user != null) {
-                  // Save the context and messenger to local variables
-                  // As to avoid using 'mounted' and context in async calls
-                  final navigator = Navigator.of(context);
-                  final messenger = ScaffoldMessenger.of(context);
-
-                  try {
-                    await DatabaseService(uid: user.uid).leaveCampaign(widget.campaign.id);
-                    
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        backgroundColor: greenPrimary,
-                        content: Center(
-                          child: Text("Успешно напуснахте кампанията.", style: TextStyle(fontWeight: FontWeight.bold),)
-                        )
-                      ),
-                    );
-                    
-                    navigator.pop(); 
-                    
-                  } catch (e) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text("Грешка: $e")),
-                    );
-                  }
-                }
-              },
-              child: const Text("Напусни", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // Build method
   @override
   Widget build(BuildContext context) {
@@ -640,16 +571,20 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       backgroundColor: const Color(0xFFF2F4F7),
       appBar: AppBar(
         title: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).snapshots(),
+          stream: FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).snapshots(),
           builder: (context, snapshot) {
-            String title = widget.campaign.title;
+            String title = widget.ngo.name;
             if (snapshot.hasData && snapshot.data!.exists) {
               final data = snapshot.data!.data() as Map<String, dynamic>?;
-              if (data != null && data.containsKey('title')) {
-                title = data['title'];
+              if (data != null && data.containsKey('name')) {
+                title = data['name'];
               }
             }
-            return Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold));
+            return Text(
+              '$title - инфо канал', 
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            );
           },
         ),
         backgroundColor: Colors.white,
@@ -659,37 +594,25 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
           // Three dots menu
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            // What screen to open based on selection
             onSelected: (String value) {
-              if (value == 'admin_panel') {
-                _openAdminPanel();
-              } else if (value == 'info') {
+              if (value == 'info') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CampaignInfoScreen(campaign: widget.campaign),
+                    builder: (context) => PublicNgoScreen(ngo: widget.ngo),
                   ),
                 );
-              } else if (value == 'leave') {
-                _confirmLeaveCampaign(context);
+              } else if (value == 'members') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => NgoMembersScreen(ngo: widget.ngo),
+                  ),
+                );
               }
             },
-            // The options in the menu
             itemBuilder: (BuildContext context) {
               return [
-                // Admin panel option for organizers only
-                if (_isOrganizer)
-                  const PopupMenuItem<String>(
-                    value: 'admin_panel',
-                    child: Row(
-                      children: [
-                        Icon(Icons.admin_panel_settings, color: Colors.black54, size: 20),
-                        SizedBox(width: 12),
-                        Text('Админ панел'),
-                      ],
-                    ),
-                  ),
-                
                 // Info option
                 const PopupMenuItem<String>(
                   value: 'info',
@@ -701,21 +624,17 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     ],
                   ),
                 ),
-
-                if (!_isOrganizer)
-                  const PopupMenuItem<String>(
-                    value: 'leave',
-                    child: Row(
-                      children: [
-                        Icon(Icons.exit_to_app, color: Colors.red, size: 20),
-                        SizedBox(width: 12),
-                        Text(
-                          'Напусни кампанията',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ],
-                    ),
+                // Members option
+                const PopupMenuItem<String>(
+                  value: 'members',
+                  child: Row(
+                    children: [
+                      Icon(Icons.group, color: Colors.black54, size: 20),
+                      SizedBox(width: 12),
+                      Text('Членове'),
+                    ],
                   ),
+                ),
               ];
             },
           ),
@@ -726,7 +645,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
           Column(
             children: [
               StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).snapshots(),
+                stream: FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).snapshots(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox.shrink();
                   
@@ -753,7 +672,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                             ],
                           ),
                         ),
-                        if (_isOrganizer)
+                        if (_canSendMessages)
                           IconButton(
                             icon: const Icon(Icons.close, size: 18, color: Colors.black54),
                             onPressed: _unpinMessage,
@@ -769,14 +688,14 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('campaigns')
-                      .doc(widget.campaign.id)
+                      .collection('ngos')
+                      .doc(widget.ngo.id)
                       .collection('messages')
                       .orderBy('timestamp', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text("Започнете разговора!", style: TextStyle(color: Colors.grey[400])));
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text("Все още няма съобщения.", style: TextStyle(color: Colors.grey[400])));
 
                     final docs = snapshot.data!.docs;
 
@@ -857,15 +776,51 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     ),
                   ),
 
-               ChatInputArea(
-                 onSendText: _handleSendText,
-                 onSendAudio: _handleSendAudio,
-                 onAttachmentTap: _handleAttachment,
-                 editingMessage: _editingMessage?['text'],
-                 replyingMessage: _replyMessage,
-                 onCancelEdit: () => setState(() => _editingMessage = null),
-                 onCancelReply: () => setState(() => _replyMessage = null),
-               ),
+               if (_canSendMessages)
+                 _ChatInputArea(
+                   onSendText: _handleSendText,
+                   onSendAudio: _handleSendAudio,
+                   onAttachmentTap: _handleAttachment,
+                   editingMessage: _editingMessage?['text'],
+                   replyingMessage: _replyMessage,
+                   onCancelEdit: () => setState(() => _editingMessage = null),
+                   onCancelReply: () => setState(() => _replyMessage = null),
+                 )
+               else if (_showInfoBanner)
+                 Container(
+                   width: double.infinity,
+                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                   color: Colors.white,
+                   child: SafeArea(
+                     child: Container(
+                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                       decoration: BoxDecoration(
+                         color: Colors.blue.shade50,
+                         borderRadius: BorderRadius.circular(12),
+                         border: Border.all(color: Colors.blue.shade200)
+                       ),
+                       child: Row(
+                         crossAxisAlignment: CrossAxisAlignment.center,
+                         children: [
+                           Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                           const SizedBox(width: 12),
+                           Expanded(
+                             child: Text(
+                               "Това е информационен канал. Само администраторите на организацията могат да изпращат съобщения тук.",
+                               style: TextStyle(color: Colors.blue.shade900, fontSize: 13),
+                             ),
+                           ),
+                           GestureDetector(
+                             onTap: () => setState(() => _showInfoBanner = false),
+                             child: Icon(Icons.close, size: 20, color: Colors.blue.shade700),
+                           )
+                         ],
+                       ),
+                     ),
+                   ),
+                 )
+               else
+                 Container(color: Colors.white, child: const SafeArea(child: SizedBox(height: 8))),
             ],
           ),
 
@@ -890,7 +845,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 }
 
 // Chat input area widget
-class ChatInputArea extends StatefulWidget {
+class _ChatInputArea extends StatefulWidget {
   final Function(String) onSendText;
   final Function(String) onSendAudio;
   final Function(String) onAttachmentTap;
@@ -899,8 +854,7 @@ class ChatInputArea extends StatefulWidget {
   final VoidCallback? onCancelEdit;
   final VoidCallback? onCancelReply;
 
-  const ChatInputArea({
-    super.key,
+  const _ChatInputArea({
     required this.onSendText,
     required this.onSendAudio,
     required this.onAttachmentTap,
@@ -911,10 +865,10 @@ class ChatInputArea extends StatefulWidget {
   });
 
   @override
-  State<ChatInputArea> createState() => _ChatInputAreaState();
+  State<_ChatInputArea> createState() => _ChatInputAreaState();
 }
 
-class _ChatInputAreaState extends State<ChatInputArea> {
+class _ChatInputAreaState extends State<_ChatInputArea> {
   final TextEditingController _controller = TextEditingController();
   final AudioRecorder _audioRecorder = AudioRecorder();
   
@@ -922,7 +876,7 @@ class _ChatInputAreaState extends State<ChatInputArea> {
   bool _isRecording = false;
 
   @override
-  void didUpdateWidget(ChatInputArea oldWidget) {
+  void didUpdateWidget(_ChatInputArea oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.editingMessage != oldWidget.editingMessage && widget.editingMessage != null) {
       _controller.text = widget.editingMessage!;
