@@ -500,49 +500,84 @@ exports.notifyOnNewCampaign = functions.firestore
                 .get();
         } catch (error) {
             console.error("Error querying volunteers for new campaign:", error);
-            return null;
+            // We shouldn't return here if we want to still notify followers, but the query failed
+            // Let's just set volunteersQuery = null
+            volunteersQuery = null;
         }
 
-        if (volunteersQuery.empty) {
-            console.log(`No volunteers interested in categories for campaign ${campaignId}`);
-            return null;
+        const tokensSet = new Set();
+
+        if (volunteersQuery && !volunteersQuery.empty) {
+            volunteersQuery.forEach(doc => {
+                const volunteerId = doc.id;
+                const data = doc.data();
+
+                // Don't notify the organizer about their own campaign
+                if (volunteerId === organizerId) return;
+
+                // They must have a token
+                if (!data.fcmToken) return;
+
+                // They must have a location
+                if (!data.lastKnownLatitude || !data.lastKnownLongitude) return;
+
+                // Calculate distance
+                const distance = calculateDistanceInKm(
+                    campaignLat, campaignLng,
+                    data.lastKnownLatitude, data.lastKnownLongitude
+                );
+
+                // Within 20km radius
+                if (distance <= 20) {
+                    tokensSet.add(data.fcmToken);
+                }
+            });
         }
 
-        const tokens = [];
+        // Add NGO Followers and Members
+        try {
+            const ngoDoc = await admin.firestore().collection("ngos").doc(organizerId).get();
+            if (ngoDoc.exists) {
+                const ngoData = ngoDoc.data();
+                const followers = ngoData.followers || [];
+                const members = ngoData.members || [];
+                const ngoAffiliates = [...new Set([...followers, ...members])];
+                
+                if (ngoAffiliates.length > 0) {
+                    const chunks = [];
+                    for (let i = 0; i < ngoAffiliates.length; i += 30) {
+                        chunks.push(ngoAffiliates.slice(i, i + 30));
+                    }
 
-        volunteersQuery.forEach(doc => {
-            const volunteerId = doc.id;
-            const data = doc.data();
+                    for (const chunk of chunks) {
+                        const snap = await admin.firestore()
+                            .collection("volunteers")
+                            .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                            .get();
 
-            // Don't notify the organizer about their own campaign
-            if (volunteerId === organizerId) return;
-
-            // They must have a token
-            if (!data.fcmToken) return;
-
-            // They must have a location
-            if (!data.lastKnownLatitude || !data.lastKnownLongitude) return;
-
-            // Calculate distance
-            const distance = calculateDistanceInKm(
-                campaignLat, campaignLng,
-                data.lastKnownLatitude, data.lastKnownLongitude
-            );
-
-            // Within 20km radius
-            if (distance <= 20) {
-                tokens.push(data.fcmToken);
+                        snap.forEach(doc => {
+                            const data = doc.data();
+                            if (data.fcmToken && doc.id !== organizerId) {
+                                tokensSet.add(data.fcmToken);
+                            }
+                        });
+                    }
+                }
             }
-        });
+        } catch (error) {
+            console.error("Error fetching NGO affiliates for new campaign:", error);
+        }
 
-        if (tokens.length === 0) {
-            console.log(`No interested volunteers within 20km for campaign ${campaignId}`);
+        const uniqueTokens = Array.from(tokensSet);
+
+        if (uniqueTokens.length === 0) {
+            console.log(`No users to notify for new campaign ${campaignId}`);
             return null;
         }
 
         const baseMessage = {
             notification: {
-                title: "Нова кампания за теб!",
+                title: "Нова кампания!",
                 body: `Кампанията "${campaignTitle}" търси доброволци!`,
             },
             data: {
@@ -551,14 +586,61 @@ exports.notifyOnNewCampaign = functions.firestore
             }
         };
 
-        const promises = tokens.map(token => {
+        const promises = uniqueTokens.map(token => {
             const pushMessage = { ...baseMessage, token: token };
             return admin.messaging().send(pushMessage);
         });
 
         const responses = await Promise.allSettled(promises);
         const successCount = responses.filter(r => r.status === 'fulfilled').length;
-        console.log(`New campaign notification "${campaignTitle}" sent to ${successCount}/${tokens.length} volunteers within 20km.`);
+        console.log(`New campaign notification "${campaignTitle}" sent to ${successCount}/${uniqueTokens.length} users.`);
 
+        return null;
+    });
+
+exports.notifyNgoOnNewFollower = functions.firestore
+    .document("ngos/{ngoId}")
+    .onUpdate(async (change, context) => {
+        const newValue = change.after.data();
+        const previousValue = change.before.data();
+        
+        const newFollowers = newValue.followers || [];
+        const oldFollowers = previousValue.followers || [];
+        
+        // Check if an element was added
+        if (newFollowers.length > oldFollowers.length) {
+            const addedUid = newFollowers.find(id => !oldFollowers.includes(id));
+            if (!addedUid) return null;
+            
+            const fcmToken = newValue.fcmToken;
+            if (!fcmToken) return null;
+            
+            // Get volunteer's name
+            const volunteerDoc = await admin.firestore().collection("volunteers").doc(addedUid).get();
+            let volunteerName = "Нов потребител";
+            if (volunteerDoc.exists) {
+                const volData = volunteerDoc.data();
+                volunteerName = `${volData.firstName} ${volData.lastName}`;
+            }
+            
+            const message = {
+                notification: {
+                    title: "Нов последовател!",
+                    body: `${volunteerName} вече ви следва.`,
+                },
+                data: {
+                    ngoId: context.params.ngoId,
+                    type: "new_follower",
+                },
+                token: fcmToken
+            };
+            
+            try {
+                await admin.messaging().send(message);
+                console.log("New follower notification sent successfully to NGO:", context.params.ngoId);
+            } catch (error) {
+                console.error("Error sending new follower notification:", error);
+            }
+        }
         return null;
     });
