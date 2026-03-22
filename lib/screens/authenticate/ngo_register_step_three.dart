@@ -71,8 +71,7 @@ class _NgoRegisterStepThreeState extends State<NgoRegisterStepThree> {
 
             TextFormField(
               initialValue: widget.data.facebookLink,
-              keyboardType: TextInputType.url,
-              decoration: textInputDecoration.copyWith(hintText: 'Facebook страница (по избор)', hintStyle: TextStyle(color: Colors.grey[600])),
+              decoration: textInputDecoration.copyWith(hintText: 'Facebook профил (по избор)', hintStyle: TextStyle(color: Colors.grey[600])),
               onChanged: (val) {
                 widget.data.facebookLink = val;
               },
@@ -82,7 +81,6 @@ class _NgoRegisterStepThreeState extends State<NgoRegisterStepThree> {
 
             TextFormField(
               initialValue: widget.data.instagramLink,
-              keyboardType: TextInputType.url,
               decoration: textInputDecoration.copyWith(hintText: 'Instagram профил (по избор)', hintStyle: TextStyle(color: Colors.grey[600])),
               onChanged: (val) {
                 widget.data.instagramLink = val;

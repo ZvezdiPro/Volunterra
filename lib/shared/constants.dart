@@ -18,6 +18,24 @@ const textInputDecoration = InputDecoration(
   ),
 );
 
+final searchBarInputDecoration = InputDecoration(
+  filled: true,
+  fillColor: Colors.white,
+  contentPadding: const EdgeInsets.symmetric(vertical: 0.0),
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10.0),
+    borderSide: BorderSide.none,
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10.0),
+    borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(10.0),
+    borderSide: const BorderSide(color: blueSecondary, width: 1.5),
+  ),
+);
+
 const titleStyle = TextStyle(
   color: Colors.black,
   fontSize: 28,

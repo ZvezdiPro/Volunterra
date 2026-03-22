@@ -9,6 +9,7 @@ import 'package:volunteer_app/screens/main/create_campaign.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaigns_map.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
+import 'package:volunteer_app/shared/constants.dart';
 import 'package:volunteer_app/widgets/campaign_list.dart';
 
 class EventsPage extends StatefulWidget {
@@ -230,24 +231,9 @@ class _EventsPageState extends State<EventsPage> {
                                 _searchQuery = value;
                               });
                             },
-                            decoration: InputDecoration(
+                            decoration: searchBarInputDecoration.copyWith(
                               hintText: 'Търси по име на кампания...',
                               prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 0.0),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10.0),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10.0),
-                                borderSide: BorderSide(color: Colors.grey.shade300, width: 1.0),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10.0),
-                                borderSide: BorderSide(color: blueSecondary, width: 1.0),
-                              ),
                             ),
                           ),
                           

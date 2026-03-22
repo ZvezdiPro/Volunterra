@@ -526,4 +526,43 @@ class DatabaseService {
       }
     });
   }
+
+  // Update NGO general information
+  Future<void> updateNgoInfo(Map<String, dynamic> data) async {
+    if (uid == null) return;
+    data['updatedAt'] = DateTime.now();
+    return await ngoCollection.doc(uid).update(data);
+  }
+
+  // Add a member to NGO
+  Future<void> addNgoMember(String volunteerUid) async {
+    if (uid == null) return;
+    return await ngoCollection.doc(uid).update({
+      'members': FieldValue.arrayUnion([volunteerUid])
+    });
+  }
+
+  // Remove a member from NGO
+  Future<void> removeNgoMember(String volunteerUid) async {
+    if (uid == null) return;
+    return await ngoCollection.doc(uid).update({
+      'members': FieldValue.arrayRemove([volunteerUid])
+    });
+  }
+
+  // Search volunteers by name or email
+  Future<List<VolunteerUser>> searchVolunteers(String query) async {
+    if (query.isEmpty) return [];
+    
+    final querySnapshot = await volunteerCollection.get();
+    final lowerQuery = query.toLowerCase();
+    
+    return querySnapshot.docs
+        .map((doc) => VolunteerUser.fromFirestore(doc))
+        .where((user) {
+          final fullName = '${user.firstName} ${user.lastName}'.toLowerCase();
+          return fullName.contains(lowerQuery) || user.email.toLowerCase().contains(lowerQuery);
+        })
+        .toList();
+  }
 }

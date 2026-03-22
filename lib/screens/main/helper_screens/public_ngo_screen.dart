@@ -155,7 +155,12 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
                       _buildContactItem(Icons.phone_outlined, 'Телефон', ngo.phone),
                       if (ngo.website != null && ngo.website!.isNotEmpty) ...[
                         const Divider(height: 20),
-                        _buildContactItem(Icons.language_outlined, 'Уебсайт', ngo.website!),
+                        _buildContactItem(
+                          Icons.language_outlined, 
+                          'Уебсайт', 
+                          ngo.website!,
+                          onTap: () => _launchURL(ngo.website!),
+                        ),
                       ],
                       const Divider(height: 20),
                       _buildContactItem(Icons.location_on_outlined, 'Адрес', ngo.address),
@@ -173,7 +178,7 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
                 _buildSectionTitle('Създадени кампании'),
                 _buildHostedCampaigns(ngo.id),
                 
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -254,8 +259,8 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
     return Container(height: 30, width: 1, color: Colors.grey[200]);
   }
 
-  Widget _buildContactItem(IconData icon, String label, String value) {
-    return Row(
+  Widget _buildContactItem(IconData icon, String label, String value, {VoidCallback? onTap}) {
+    Widget content = Row(
       children: [
         Container(
           padding: const EdgeInsets.all(8),
@@ -278,10 +283,24 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
         ),
       ],
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 
   Widget _buildSocialLinks(Map<String, String> links) {
-    final entries = links.entries.toList();
+    final entries = links.entries.where((e) => e.value.trim().isNotEmpty).toList();
+    if (entries.isEmpty) return const SizedBox();
+
     return _buildInfoCard(
       child: Column(
         children: List.generate(entries.length, (index) {
@@ -302,9 +321,32 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
               label = entry.key.isEmpty ? '' : '${entry.key[0].toUpperCase()}${entry.key.substring(1)}';
           }
           
+          String displayValue = entry.value.trim();
+          displayValue = displayValue.replaceAll(RegExp(r'https?:\/\/(www\.)?(facebook|instagram)\.com\/', caseSensitive: false), '');
+          if (displayValue.endsWith('/')) {
+            displayValue = displayValue.substring(0, displayValue.length - 1);
+          }
+          if (displayValue.startsWith('@')) {
+             displayValue = displayValue.substring(1);
+          }
+          
           return Column(
             children: [
-              _buildContactItem(icon, label, entry.value),
+              _buildContactItem(
+                icon, 
+                label, 
+                '@$displayValue',
+                onTap: () {
+                  final handle = displayValue;
+                  if (entry.key.toLowerCase() == 'facebook') {
+                    _launchURL('https://facebook.com/$handle');
+                  } else if (entry.key.toLowerCase() == 'instagram') {
+                    _launchURL('https://instagram.com/$handle');
+                  } else {
+                    _launchURL(entry.value);
+                  }
+                }
+              ),
               if (index < entries.length - 1)
                 const Divider(height: 20),
             ],

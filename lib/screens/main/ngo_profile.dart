@@ -8,6 +8,7 @@ import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
 import 'package:volunteer_app/screens/main/helper_screens/saved_campaigns.dart';
+import 'package:volunteer_app/screens/main/helper_screens/ngo_admin_panel.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NGOProfilePage extends StatefulWidget {
@@ -137,18 +138,27 @@ class _NGOProfilePageState extends State<NGOProfilePage> {
                   height: 45,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Функцията за редактиране ще бъде налична скоро.',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                      if (!ngo.isVerified) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Профилът трябва да бъде одобрен от администратор, за да управлявате НПО.',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            backgroundColor: Colors.orange,
                           ),
-                          backgroundColor: greenPrimary,
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => NgoAdminPanel(ngo: ngo),
                         ),
                       );
                     },
-                    icon: const Icon(Icons.edit, color: Colors.white, size: 18),
-                    label: const Text('Редактирай информация', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+                    label: const Text('Управлявай НПО', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: blueSecondary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -208,7 +218,12 @@ class _NGOProfilePageState extends State<NGOProfilePage> {
                       _buildContactItem(Icons.phone_outlined, 'Телефон', ngo.phone),
                       if (ngo.website != null && ngo.website!.isNotEmpty) ...[
                         const Divider(height: 20),
-                        _buildContactItem(Icons.language_outlined, 'Уебсайт', ngo.website!),
+                        _buildContactItem(
+                          Icons.language_outlined, 
+                          'Уебсайт', 
+                          ngo.website!,
+                          onTap: () => _launchURL(ngo.website!),
+                        ),
                       ],
                       const Divider(height: 20),
                       _buildContactItem(Icons.location_on_outlined, 'Адрес', ngo.address),
@@ -349,8 +364,8 @@ class _NGOProfilePageState extends State<NGOProfilePage> {
     return Container(height: 30, width: 1, color: Colors.grey[200]);
   }
 
-  Widget _buildContactItem(IconData icon, String label, String value) {
-    return Row(
+  Widget _buildContactItem(IconData icon, String label, String value, {VoidCallback? onTap}) {
+    Widget content = Row(
       children: [
         Container(
           padding: const EdgeInsets.all(8),
@@ -373,10 +388,24 @@ class _NGOProfilePageState extends State<NGOProfilePage> {
         ),
       ],
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 
   Widget _buildSocialLinks(Map<String, String> links) {
-    final entries = links.entries.toList();
+    final entries = links.entries.where((e) => e.value.trim().isNotEmpty).toList();
+    if (entries.isEmpty) return const SizedBox();
+
     return _buildInfoCard(
       child: Column(
         children: List.generate(entries.length, (index) {
@@ -397,9 +426,32 @@ class _NGOProfilePageState extends State<NGOProfilePage> {
               label = entry.key.isEmpty ? '' : '${entry.key[0].toUpperCase()}${entry.key.substring(1)}';
           }
           
+          String displayValue = entry.value.trim();
+          displayValue = displayValue.replaceAll(RegExp(r'https?:\/\/(www\.)?(facebook|instagram)\.com\/', caseSensitive: false), '');
+          if (displayValue.endsWith('/')) {
+            displayValue = displayValue.substring(0, displayValue.length - 1);
+          }
+          if (displayValue.startsWith('@')) {
+             displayValue = displayValue.substring(1);
+          }
+          
           return Column(
             children: [
-              _buildContactItem(icon, label, entry.value),
+              _buildContactItem(
+                icon, 
+                label, 
+                '@$displayValue',
+                onTap: () {
+                  final handle = displayValue;
+                  if (entry.key.toLowerCase() == 'facebook') {
+                    _launchURL('https://facebook.com/$handle');
+                  } else if (entry.key.toLowerCase() == 'instagram') {
+                    _launchURL('https://instagram.com/$handle');
+                  } else {
+                    _launchURL(entry.value);
+                  }
+                }
+              ),
               if (index < entries.length - 1)
                 const Divider(height: 20),
             ],
