@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/models/volunteer.dart';
@@ -20,6 +24,10 @@ class NgoAdminPanel extends StatefulWidget {
 class _NgoAdminPanelState extends State<NgoAdminPanel> {
   final DatabaseService _db = DatabaseService();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ImagePicker _picker = ImagePicker();
+
+  File? _newLogo;
+  File? _newCoverImage;
 
   late TextEditingController _nameController;
   late TextEditingController _descriptionController;
@@ -79,6 +87,26 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
     }
   }
 
+  Future<void> _pickImage(bool isLogo) async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      if (image != null) {
+        setState(() {
+          if (isLogo) {
+            _newLogo = File(image.path);
+          } else {
+            _newCoverImage = File(image.path);
+          }
+          _hasChanges = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Грешка при избиране на изображение: $e")));
+      }
+    }
+  }
+
   Future<void> _loadMembers() async {
     setState(() => _isLoadingMembers = true);
     try {
@@ -134,6 +162,37 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
     setState(() => _isSaving = true);
 
     try {
+      String? updatedLogoUrl;
+      String? updatedCoverUrl;
+
+      if (_newLogo != null) {
+        Reference ref = FirebaseStorage.instance.ref().child('ngo_branding/${_currentNgo.id}/logo_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await ref.putFile(_newLogo!);
+        updatedLogoUrl = await ref.getDownloadURL();
+        
+        if (_currentNgo.logoUrl != null && _currentNgo.logoUrl!.isNotEmpty) {
+          try {
+            await FirebaseStorage.instance.refFromURL(_currentNgo.logoUrl!).delete();
+          } catch (e) {
+            debugPrint("Error deleting old logo: $e");
+          }
+        }
+      }
+
+      if (_newCoverImage != null) {
+        Reference ref = FirebaseStorage.instance.ref().child('ngo_branding/${_currentNgo.id}/cover_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await ref.putFile(_newCoverImage!);
+        updatedCoverUrl = await ref.getDownloadURL();
+        
+        if (_currentNgo.coverImageUrl != null && _currentNgo.coverImageUrl!.isNotEmpty) {
+          try {
+            await FirebaseStorage.instance.refFromURL(_currentNgo.coverImageUrl!).delete();
+          } catch (e) {
+            debugPrint("Error deleting old cover: $e");
+          }
+        }
+      }
+
       Map<String, String> socialLinks = {};
       if (_fbController.text.trim().isNotEmpty) socialLinks['facebook'] = _fbController.text.trim();
       if (_igController.text.trim().isNotEmpty) socialLinks['instagram'] = _igController.text.trim();
@@ -147,6 +206,9 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
         'website': _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
         'socialLinks': socialLinks,
       };
+
+      if (updatedLogoUrl != null) updateData['logoUrl'] = updatedLogoUrl;
+      if (updatedCoverUrl != null) updateData['coverImageUrl'] = updatedCoverUrl;
 
       await DatabaseService(uid: _currentNgo.id).updateNgoInfo(updateData);
       
@@ -163,6 +225,8 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
           if (updatedNgo != null) {
             _currentNgo = updatedNgo;
           }
+          _newLogo = null;
+          _newCoverImage = null;
           _hasChanges = false;
           _isSaving = false;
         });
@@ -361,6 +425,7 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isNgoOwner) _buildBrandingSection(),
             const Text("Основна информация", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
             Text(isNgoOwner ? "Променете основните детайли на организацията" : "Основни детайли на организацията", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
@@ -451,6 +516,99 @@ class _NgoAdminPanelState extends State<NgoAdminPanel> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBrandingSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Визия (лого и банер)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 15),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Cover Image
+            GestureDetector(
+              onTap: () => _pickImage(false),
+              child: Container(
+                height: 160,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  image: _newCoverImage != null
+                      ? DecorationImage(image: FileImage(_newCoverImage!), fit: BoxFit.cover)
+                      : (_currentNgo.coverImageUrl != null
+                          ? DecorationImage(image: CachedNetworkImageProvider(_currentNgo.coverImageUrl!), fit: BoxFit.cover)
+                          : null),
+                ),
+                child: (_newCoverImage == null && _currentNgo.coverImageUrl == null)
+                    ? const Center(child: Icon(Icons.photo_size_select_actual_outlined, size: 40, color: Colors.grey))
+                    : null,
+              ),
+            ),
+            // Edit Overlay for Cover
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black.withAlpha(128),
+                radius: 18,
+                child: IconButton(
+                  icon: const Icon(Icons.edit, size: 18, color: Colors.white),
+                  onPressed: () => _pickImage(false),
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            // Logo Image
+            Positioned(
+              bottom: -40,
+              left: 20,
+              child: GestureDetector(
+                onTap: () => _pickImage(true),
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 8, offset: const Offset(0, 4)),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _newLogo != null
+                            ? Image.file(_newLogo!, fit: BoxFit.cover)
+                            : (_currentNgo.logoUrl != null
+                                ? CachedNetworkImage(imageUrl: _currentNgo.logoUrl!, fit: BoxFit.cover)
+                                : Container(
+                                    color: Colors.grey[100],
+                                    child: const Center(child: Icon(Icons.business, size: 40, color: greenPrimary)),
+                                  )),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: CircleAvatar(
+                        backgroundColor: blueSecondary,
+                        radius: 14,
+                        child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 60), // Spacing for the overlapping logo
+      ],
     );
   }
 

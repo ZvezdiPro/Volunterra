@@ -574,6 +574,14 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
                       debugPrint("Error checking/unpinning message: $e");
                     }
 
+                    if (fileUrl != null && fileUrl.isNotEmpty) {
+                      try {
+                        await FirebaseStorage.instance.refFromURL(fileUrl).delete();
+                      } catch (e) {
+                        debugPrint("Error deleting file from storage: $e");
+                      }
+                    }
+
                     FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).collection('messages').doc(docId).delete();
                   },
                 ),

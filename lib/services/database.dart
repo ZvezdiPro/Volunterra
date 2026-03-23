@@ -471,12 +471,12 @@ class DatabaseService {
     // Upload images if any
     String? logoUrl;
     if (data.logoImage != null) {
-      logoUrl = await uploadImage('ngo_logos/$uid', data.logoImage!, 'logo_$uid');
+      logoUrl = await uploadImage('ngo_branding/$uid', data.logoImage!, 'logo_${DateTime.now().millisecondsSinceEpoch}.jpg');
     }
     
     String? bannerUrl;
     if (data.bannerImage != null) {
-      bannerUrl = await uploadImage('ngo_banners/$uid', data.bannerImage!, 'banner_$uid');
+      bannerUrl = await uploadImage('ngo_branding/$uid', data.bannerImage!, 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg');
     }
 
     return await ngoCollection.doc(uid).set({
