@@ -70,9 +70,9 @@ class FCMService {
 
   void _saveTokenToDatabase(String? token) async {
     if (token == null) return;
-    String? uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-       await DatabaseService(uid: uid).updateFCMToken(token);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && !user.isAnonymous) {
+       await DatabaseService(uid: user.uid).updateFCMToken(token);
     }
   }
 }

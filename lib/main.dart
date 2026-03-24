@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/screens/wrapper.dart';
 import 'package:volunteer_app/services/authenticate.dart';
+
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -41,11 +42,12 @@ class _VolunteerAppState extends State<VolunteerApp> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamProvider<VolunteerUser?>.value (
+    return StreamProvider<Object?>.value (
       initialData: null,
       value: _authService.user,
       catchError: (_, __) => null,
       child: MaterialApp(
+        scaffoldMessengerKey: scaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         title: 'Volunteer App',
         theme: ThemeData(

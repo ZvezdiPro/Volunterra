@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:volunteer_app/services/authenticate.dart';
+import 'package:volunteer_app/main.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/shared/constants.dart';
 import 'package:volunteer_app/shared/loading.dart';
@@ -159,6 +160,11 @@ class _SignInState extends State<SignIn> {
                             error = 'Настъпи грешка при влизането';
                             loading = false;
                           });
+                        } else if (result is String) {
+                          setState(() {
+                            error = result;
+                            loading = false;
+                          });
                         }
                       },
                     ),
@@ -169,10 +175,44 @@ class _SignInState extends State<SignIn> {
                       icon: const Icon(Icons.facebook, size: 24, color: blueSecondary),
                       onPressed: () async {
                         setState(() => loading = true);
-                        dynamic result = await _auth.facebookLogin();
+                        dynamic result = await _auth.facebookLogin(
+                          onAccountLinkNeeded: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Този имейл е свързан с Google акаунт. Влезте през правилния Google акаунт, за да ги свържем.',
+                                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                duration: Duration(seconds: 4),
+                                backgroundColor: blueSecondary,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          onAccountLinked: () {
+                            scaffoldMessengerKey.currentState?.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Профилите са свързани успешно!',
+                                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                duration: Duration(seconds: 4),
+                                backgroundColor: greenPrimary,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        );
                         if (result == null) {
                           setState(() {
                             error = 'Настъпи грешка при влизането';
+                            loading = false;
+                          });
+                        } else if (result is String) {
+                          setState(() {
+                            error = result;
                             loading = false;
                           });
                         }

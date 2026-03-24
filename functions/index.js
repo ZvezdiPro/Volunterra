@@ -115,8 +115,12 @@ exports.notifyOnCampaignUpdate = functions.firestore
         const locationChanged = newValue.location !== previousValue.location;
         const instructionsChanged = newValue.instructions !== previousValue.instructions;
         const organizerChanged = newValue.organizerId !== previousValue.organizerId;
+        
+        const newCoorgs = newValue.coorganizersIds || [];
+        const oldCoorgs = previousValue.coorganizersIds || [];
+        const coorgAdded = newCoorgs.length > oldCoorgs.length;
 
-        if (!startChanged && !endChanged && !locationChanged && !instructionsChanged && !organizerChanged) {
+        if (!startChanged && !endChanged && !locationChanged && !instructionsChanged && !organizerChanged && !coorgAdded) {
             return null; // Return early if none of the target fields changed 
         }
 
@@ -142,6 +146,36 @@ exports.notifyOnCampaignUpdate = functions.firestore
                         console.log("Ownership transfer notification sent successfully to UID:", newValue.organizerId);
                     } catch (error) {
                         console.error("Error sending ownership transfer notification:", error);
+                    }
+                }
+            }
+        }
+
+        // Handle co-organizer added (notify new co-organizer)
+        if (coorgAdded) {
+            const addedUid = newCoorgs.find(uid => !oldCoorgs.includes(uid));
+            if (addedUid) {
+                const newCoorgDoc = await admin.firestore().collection("volunteers").doc(addedUid).get();
+                if (newCoorgDoc.exists) {
+                    const newCoorgData = newCoorgDoc.data();
+                    if (newCoorgData.fcmToken) {
+                        const coorgMessage = {
+                            notification: {
+                                title: "Нови права в кампания!",
+                                body: `Вече сте съорганизатор на кампания "${newValue.title}"!`,
+                            },
+                            data: {
+                                campaignId: context.params.campaignId,
+                                type: "coorganizer_added",
+                            },
+                            token: newCoorgData.fcmToken
+                        };
+                        try {
+                            await admin.messaging().send(coorgMessage);
+                            console.log("Co-organizer notification sent successfully to UID:", addedUid);
+                        } catch (error) {
+                            console.error("Error sending co-organizer notification:", error);
+                        }
                     }
                 }
             }
@@ -259,7 +293,23 @@ exports.notifyOnChatMessage = functions.firestore
         
         const senderId = messageData.senderId;
         const senderName = messageData.senderName || "Доброволец";
-        let messageText = messageData.text;
+        const type = messageData.type || "text";
+        let messageText = messageData.text || "";
+
+        if (messageText.trim() === "") {
+            if (type === "image") messageText = "📷 Снимка";
+            else if (type === "audio") messageText = "🎤 Гласово съобщение";
+            else if (type === "video") messageText = "🎥 Видео";
+            else if (type === "file") {
+                messageText = messageData.fileName ? `📄 Файл: ${messageData.fileName}` : "📄 Файл";
+            }
+            else if (type === "contact") {
+                messageText = messageData.contactName ? `👤 Контакт: ${messageData.contactName}` : "👤 Контакт";
+            }
+            else messageText = "Медия";
+        } else if (type === "contact") {
+            messageText = messageData.contactName ? `👤 Контакт: ${messageData.contactName}` : "👤 Контакт";
+        }
 
         // Fetch campaign details
         const campaignDoc = await admin.firestore().collection("campaigns").doc(campaignId).get();
@@ -500,49 +550,84 @@ exports.notifyOnNewCampaign = functions.firestore
                 .get();
         } catch (error) {
             console.error("Error querying volunteers for new campaign:", error);
-            return null;
+            // We shouldn't return here if we want to still notify followers, but the query failed
+            // Let's just set volunteersQuery = null
+            volunteersQuery = null;
         }
 
-        if (volunteersQuery.empty) {
-            console.log(`No volunteers interested in categories for campaign ${campaignId}`);
-            return null;
+        const tokensSet = new Set();
+
+        if (volunteersQuery && !volunteersQuery.empty) {
+            volunteersQuery.forEach(doc => {
+                const volunteerId = doc.id;
+                const data = doc.data();
+
+                // Don't notify the organizer about their own campaign
+                if (volunteerId === organizerId) return;
+
+                // They must have a token
+                if (!data.fcmToken) return;
+
+                // They must have a location
+                if (!data.lastKnownLatitude || !data.lastKnownLongitude) return;
+
+                // Calculate distance
+                const distance = calculateDistanceInKm(
+                    campaignLat, campaignLng,
+                    data.lastKnownLatitude, data.lastKnownLongitude
+                );
+
+                // Within 20km radius
+                if (distance <= 20) {
+                    tokensSet.add(data.fcmToken);
+                }
+            });
         }
 
-        const tokens = [];
+        // Add NGO Followers and Members
+        try {
+            const ngoDoc = await admin.firestore().collection("ngos").doc(organizerId).get();
+            if (ngoDoc.exists) {
+                const ngoData = ngoDoc.data();
+                const followers = ngoData.followers || [];
+                const members = ngoData.members || [];
+                const ngoAffiliates = [...new Set([...followers, ...members])];
+                
+                if (ngoAffiliates.length > 0) {
+                    const chunks = [];
+                    for (let i = 0; i < ngoAffiliates.length; i += 30) {
+                        chunks.push(ngoAffiliates.slice(i, i + 30));
+                    }
 
-        volunteersQuery.forEach(doc => {
-            const volunteerId = doc.id;
-            const data = doc.data();
+                    for (const chunk of chunks) {
+                        const snap = await admin.firestore()
+                            .collection("volunteers")
+                            .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                            .get();
 
-            // Don't notify the organizer about their own campaign
-            if (volunteerId === organizerId) return;
-
-            // They must have a token
-            if (!data.fcmToken) return;
-
-            // They must have a location
-            if (!data.lastKnownLatitude || !data.lastKnownLongitude) return;
-
-            // Calculate distance
-            const distance = calculateDistanceInKm(
-                campaignLat, campaignLng,
-                data.lastKnownLatitude, data.lastKnownLongitude
-            );
-
-            // Within 20km radius
-            if (distance <= 20) {
-                tokens.push(data.fcmToken);
+                        snap.forEach(doc => {
+                            const data = doc.data();
+                            if (data.fcmToken && doc.id !== organizerId) {
+                                tokensSet.add(data.fcmToken);
+                            }
+                        });
+                    }
+                }
             }
-        });
+        } catch (error) {
+            console.error("Error fetching NGO affiliates for new campaign:", error);
+        }
 
-        if (tokens.length === 0) {
-            console.log(`No interested volunteers within 20km for campaign ${campaignId}`);
+        const uniqueTokens = Array.from(tokensSet);
+
+        if (uniqueTokens.length === 0) {
+            console.log(`No users to notify for new campaign ${campaignId}`);
             return null;
         }
 
         const baseMessage = {
             notification: {
-                title: "Нова кампания за теб!",
+                title: "Нова кампания!",
                 body: `Кампанията "${campaignTitle}" търси доброволци!`,
             },
             data: {
@@ -551,14 +636,259 @@ exports.notifyOnNewCampaign = functions.firestore
             }
         };
 
-        const promises = tokens.map(token => {
+        const promises = uniqueTokens.map(token => {
             const pushMessage = { ...baseMessage, token: token };
             return admin.messaging().send(pushMessage);
         });
 
         const responses = await Promise.allSettled(promises);
         const successCount = responses.filter(r => r.status === 'fulfilled').length;
-        console.log(`New campaign notification "${campaignTitle}" sent to ${successCount}/${tokens.length} volunteers within 20km.`);
+        console.log(`New campaign notification "${campaignTitle}" sent to ${successCount}/${uniqueTokens.length} users.`);
+
+        return null;
+    });
+
+exports.notifyNgoOnNewFollower = functions.firestore
+    .document("ngos/{ngoId}")
+    .onUpdate(async (change, context) => {
+        const newValue = change.after.data();
+        const previousValue = change.before.data();
+        
+        const newFollowers = newValue.followers || [];
+        const oldFollowers = previousValue.followers || [];
+        
+        // Check if an element was added
+        if (newFollowers.length > oldFollowers.length) {
+            const addedUid = newFollowers.find(id => !oldFollowers.includes(id));
+            if (!addedUid) return null;
+            
+            const fcmToken = newValue.fcmToken;
+            if (!fcmToken) return null;
+            
+            // Get volunteer's name
+            const volunteerDoc = await admin.firestore().collection("volunteers").doc(addedUid).get();
+            let volunteerName = "Нов потребител";
+            if (volunteerDoc.exists) {
+                const volData = volunteerDoc.data();
+                volunteerName = `${volData.firstName} ${volData.lastName}`;
+            }
+            
+            const message = {
+                notification: {
+                    title: "Нов последовател!",
+                    body: `${volunteerName} вече ви следва.`,
+                },
+                data: {
+                    ngoId: context.params.ngoId,
+                    type: "new_follower",
+                },
+                token: fcmToken
+            };
+            
+            try {
+                await admin.messaging().send(message);
+                console.log("New follower notification sent successfully to NGO:", context.params.ngoId);
+            } catch (error) {
+                console.error("Error sending new follower notification:", error);
+            }
+        }
+        return null;
+    });
+
+exports.notifyOnNgoChatMessage = functions.firestore
+    .document("ngos/{ngoId}/messages/{messageId}")
+    .onCreate(async (snap, context) => {
+        const messageData = snap.data();
+        const ngoId = context.params.ngoId;
+        
+        const senderId = messageData.senderId;
+        const senderName = messageData.senderName || "Организация";
+        const type = messageData.type || "text";
+        let messageText = messageData.text || "";
+
+        if (messageText.trim() === "") {
+            if (type === "image") messageText = "📷 Снимка";
+            else if (type === "audio") messageText = "🎤 Гласово съобщение";
+            else if (type === "video") messageText = "🎥 Видео";
+            else if (type === "file") {
+                messageText = messageData.fileName ? `📄 Файл: ${messageData.fileName}` : "📄 Файл";
+            }
+            else if (type === "contact") {
+                messageText = messageData.contactName ? `👤 Контакт: ${messageData.contactName}` : "👤 Контакт";
+            }
+            else messageText = "Медия";
+        } else if (type === "contact") {
+            messageText = messageData.contactName ? `👤 Контакт: ${messageData.contactName}` : "👤 Контакт";
+        }
+
+        // Fetch NGO details
+        const ngoDoc = await admin.firestore().collection("ngos").doc(ngoId).get();
+        if (!ngoDoc.exists) return null;
+
+        const ngoData = ngoDoc.data();
+        const ngoTitle = ngoData.name || "Организация";
+        const members = ngoData.members || [];
+        const admins = ngoData.admins || [];
+
+        // Combine all participants
+        let participants = new Set([...members, ...admins]);
+
+        // Remove the sender from the receivers list
+        if (senderId) {
+            participants.delete(senderId);
+        }
+
+        if (participants.size === 0) return null;
+
+        const receiversArray = Array.from(participants);
+        const tokens = [];
+
+        try {
+            // Fetch tokens in chunks of 30
+            const chunks = [];
+            for (let i = 0; i < receiversArray.length; i += 30) {
+                chunks.push(receiversArray.slice(i, i + 30));
+            }
+
+            for (const chunk of chunks) {
+                const snapshot = await admin.firestore()
+                    .collection("volunteers")
+                    .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                    .get();
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.fcmToken) {
+                        tokens.push(data.fcmToken);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching tokens for NGO chat message:", error);
+            return null;
+        }
+
+        if (tokens.length === 0) return null;
+
+        // Truncate message text if too long
+        if (messageText && messageText.length > 100) {
+            messageText = messageText.substring(0, 97) + "...";
+        }
+
+        const baseMessage = {
+            notification: {
+                title: `${ngoTitle} - инфо канал`,
+                body: `${senderName}: ${messageText}`,
+            },
+            data: {
+                ngoId: ngoId,
+                type: "ngo_chat_message",
+            }
+        };
+
+        const promises = tokens.map(token => {
+            const pushMessage = {
+                ...baseMessage,
+                token: token
+            };
+            return admin.messaging().send(pushMessage);
+        });
+
+        try {
+            const responses = await Promise.allSettled(promises);
+            let successCount = 0;
+            let failureCount = 0;
+
+            responses.forEach((resp) => {
+                if (resp.status === 'fulfilled') {
+                    successCount++;
+                } else {
+                    failureCount++;
+                }
+            });
+
+            console.log(`NGO chat message: ${successCount} notifications sent successfully, ${failureCount} failed.`);
+        } catch (error) {
+            console.error("Fatal error sending NGO chat notifications:", error);
+        }
+
+        return null;
+    });
+
+exports.notifyOnCampaignEnded = functions.firestore
+    .document("campaigns/{campaignId}")
+    .onUpdate(async (change, context) => {
+        const newValue = change.after.data();
+        const previousValue = change.before.data();
+
+        // Only fire when status changes to 'ended'
+        if (previousValue.status === "ended" || newValue.status !== "ended") {
+            return null;
+        }
+
+        const campaignTitle = newValue.title || "Кампания";
+        const registeredVolunteers = newValue.registeredVolunteersUids || [];
+
+        if (registeredVolunteers.length === 0) {
+            console.log(`No volunteers to notify for ended campaign: ${campaignTitle}`);
+            return null;
+        }
+
+        // Fetch FCM tokens for all registered volunteers in chunks of 30
+        const tokens = [];
+        try {
+            const chunks = [];
+            for (let i = 0; i < registeredVolunteers.length; i += 30) {
+                chunks.push(registeredVolunteers.slice(i, i + 30));
+            }
+
+            for (const chunk of chunks) {
+                const snapshot = await admin.firestore()
+                    .collection("volunteers")
+                    .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                    .get();
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.fcmToken) {
+                        tokens.push(data.fcmToken);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching volunteer tokens for ended campaign:", error);
+            return null;
+        }
+
+        if (tokens.length === 0) {
+            console.log("No FCM tokens found for registered volunteers.");
+            return null;
+        }
+
+        const baseMessage = {
+            notification: {
+                title: "Кампанията е прекратена",
+                body: `Организаторът прекрати кампания "${campaignTitle}".`,
+            },
+            data: {
+                campaignId: context.params.campaignId,
+                type: "campaign_ended",
+            },
+        };
+
+        const promises = tokens.map(token => {
+            const message = { ...baseMessage, token: token };
+            return admin.messaging().send(message);
+        });
+
+        try {
+            const responses = await Promise.allSettled(promises);
+            const successCount = responses.filter(r => r.status === "fulfilled").length;
+            const failureCount = responses.length - successCount;
+            console.log(`Campaign ended "${campaignTitle}": ${successCount} notifications sent, ${failureCount} failed.`);
+        } catch (error) {
+            console.error("Fatal error sending campaign ended notifications:", error);
+        }
 
         return null;
     });

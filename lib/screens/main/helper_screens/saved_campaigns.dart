@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
@@ -14,10 +15,19 @@ class SavedCampaignsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<VolunteerUser?>(context);
+    final Object? userObj = Provider.of<Object?>(context);
+    final bool isNgo = userObj is NGO;
+    
+    String? uid;
+    if (userObj is NGO) {
+      uid = userObj.id;
+    } else if (userObj is VolunteerUser) {
+      uid = userObj.uid;
+    }
+    
     final bool isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
     
-    if (user == null) return Container();
+    if (uid == null && !isGuest) return Container();
 
     return Scaffold(
       backgroundColor: backgroundGrey,
@@ -36,16 +46,18 @@ class SavedCampaignsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: isGuest ? _buildGuestState(context) : StreamBuilder<VolunteerUser>(
-        stream: DatabaseService(uid: user.uid).volunteerUserData,
+      body: isGuest ? _buildGuestState(context) : StreamBuilder<dynamic>(
+        stream: isNgo ? DatabaseService(uid: uid).ngoData : DatabaseService(uid: uid).volunteerUserData,
         builder: (context, userSnapshot) {
           
-          if (!userSnapshot.hasData) {
+          if (!userSnapshot.hasData || userSnapshot.data == null) {
             return Center(child: Loading());
           }
 
-          final volunteerData = userSnapshot.data!;
-          final List<String> bookmarkedIds = volunteerData.bookmarkedCampaignsIds;
+          final dynamic userData = userSnapshot.data!;
+          final List<String> bookmarkedIds = isNgo 
+              ? List<String>.from((userData as NGO).bookmarkedCampaignsIds) 
+              : List<String>.from((userData as VolunteerUser).bookmarkedCampaignsIds);
 
           if (bookmarkedIds.isEmpty) {
             return _buildEmptyState();

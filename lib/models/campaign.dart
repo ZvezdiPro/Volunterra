@@ -24,6 +24,7 @@ class Campaign {
   final DateTime updatedAt;
   final List<String> categories;
   final List<String> registeredVolunteersUids;
+  final List<String> coorganizersIds;
   final String status; // "active" by default
   final bool isDelisted;
 
@@ -44,6 +45,7 @@ class Campaign {
     required this.categories,
     this.instructions = '',
     this.registeredVolunteersUids = const [],
+    this.coorganizersIds = const [],
     this.status = 'active',
     this.isDelisted = false,
   });
@@ -69,6 +71,7 @@ class Campaign {
       updatedAt: data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : DateTime.now(),
       categories: List<String>.from(data['categories'] ?? const []),
       registeredVolunteersUids: List<String>.from(data['registeredVolunteersUids'] ?? const []),
+      coorganizersIds: List<String>.from(data['coorganizersIds'] ?? const []),
       status: data['status'] ?? 'active',
       isDelisted: data['isDelisted'] ?? false,
     );

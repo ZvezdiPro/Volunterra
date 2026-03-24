@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/screens/main/helper_screens/chat_screen.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
@@ -17,29 +19,52 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   late String _currentUid;
   late DatabaseService _dbService;
+
+  late Stream<VolunteerUser?> _userDataStream;
+  late Stream<List<Campaign>> _campaignsStream;
+  late Stream<List<Campaign>> _registeredCampaignsStream;
+  late Stream<List<Campaign>> _createdCampaignsStream;
 
   @override
   void initState() {
     super.initState();
     _currentUid = FirebaseAuth.instance.currentUser?.uid ?? ''; 
     _dbService = DatabaseService(uid: _currentUid);
+
+    _userDataStream = _dbService.volunteerUserData;
+    _campaignsStream = _dbService.campaigns;
+    _registeredCampaignsStream = _dbService.registeredCampaigns;
+    _createdCampaignsStream = _dbService.createdCampaigns;
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
+    final userObj = Provider.of<Object?>(context);
+    final bool isNgo = userObj is NGO;
+    final NGO? ngoUser = isNgo ? userObj : null;
+
     return Container(
       color: backgroundGrey,
       // StreamBuilder for user's data
-      child: StreamBuilder<VolunteerUser>(
-        stream: _dbService.volunteerUserData,
+      child: StreamBuilder<VolunteerUser?>(
+        stream: _userDataStream,
         builder: (context, userSnapshot) {
           
-          String firstName = 'доброволец';
-          if (userSnapshot.hasData && userSnapshot.data != null) {
-            firstName = userSnapshot.data!.firstName;
+          String greetingName = 'доброволец';
+          String greetingPrefix = 'Здравей,';
+          
+          if (isNgo && ngoUser != null) {
+            greetingName = ngoUser.name;
+            greetingPrefix = 'Здравейте,';
+          } else if (userSnapshot.hasData && userSnapshot.data != null && userSnapshot.data!.firstName.trim().isNotEmpty) {
+            greetingName = userSnapshot.data!.firstName;
           }
           
           List<String> userInterests = [];
@@ -56,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: Text(
-                    'Здравей, $firstName! 👋',
+                    '$greetingPrefix $greetingName! 👋',
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ),
@@ -64,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Campaign listener
                 StreamBuilder<List<Campaign>>(
-                  stream: _dbService.campaigns,
+                  stream: _campaignsStream,
                   builder: (context, campaignSnapshot) {
                     if (campaignSnapshot.connectionState == ConnectionState.waiting && !campaignSnapshot.hasData) {
                       return const Padding(
@@ -155,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // User's activity (placeholder for now)
                 _buildSectionTitle('Твоята активност'),
                 const SizedBox(height: 15),
-                _buildActivitySection(userSnapshot.data),
+                _buildActivitySection(isNgo ? ngoUser : userSnapshot.data, isNgo),
                 const SizedBox(height: 30),
 
                 // Button to go to the Events page
@@ -197,16 +222,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActivitySection(VolunteerUser? currentUser) {
+  Widget _buildActivitySection(dynamic currentUser, bool isNgo) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       // StreamBuilders for registered campaigns and created campaigns
       child: StreamBuilder<List<Campaign>>(
-        stream: _dbService.registeredCampaigns,
+        stream: _registeredCampaignsStream,
         builder: (context, registeredSnapshot) {
           
           return StreamBuilder<List<Campaign>>(
-            stream: _dbService.createdCampaigns,
+            stream: _createdCampaignsStream,
             builder: (context, createdSnapshot) {
               
               if (registeredSnapshot.connectionState == ConnectionState.waiting ||
@@ -267,7 +292,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 15),
                       Expanded(
                         child: Text(
-                          'Нямаш предстоящи задачи. Време е да се запишеш!',
+                          isNgo 
+                              ? 'Няма създадени кампании. Създай кампания!'
+                              : 'Нямаш предстоящи задачи. Време е да се запишеш!',
                           style: TextStyle(color: Colors.grey[600], fontSize: 14),
                         ),
                       ),
@@ -305,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActivityItem(Campaign campaign, bool isAdmin, bool isLast, VolunteerUser? currentUser) {
+  Widget _buildActivityItem(Campaign campaign, bool isAdmin, bool isLast, dynamic currentUser) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () {

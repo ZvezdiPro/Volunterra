@@ -5,12 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/screens/main/helper_screens/edit_profile_screen.dart';
-import 'package:volunteer_app/screens/main/helper_screens/settings.dart';
-import 'package:volunteer_app/screens/main/helper_screens/achievements.dart';
 import 'package:volunteer_app/screens/main/helper_screens/saved_campaigns.dart';
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
+import 'package:volunteer_app/models/ngo.dart';
+import 'package:volunteer_app/screens/main/helper_screens/public_ngo_screen.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,14 +19,19 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
-  int _campaignsCount = 0;
-  int _volunteerHours = 0;
+class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClientMixin {
   VolunteerUser? _updatedVolunteer;
+
+  late Stream<List<Campaign>> _registeredCampaignsStream;
+  late Stream<List<Campaign>> _createdCampaignsStream;
 
   @override
   void initState() {
     super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    _registeredCampaignsStream = DatabaseService(uid: uid).registeredCampaigns;
+    _createdCampaignsStream = DatabaseService(uid: uid).createdCampaigns;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfileData(); 
     });
@@ -40,19 +45,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final DatabaseService dbService = DatabaseService(uid: user.uid);
 
     try {
-      // Fetch both registered and created campaigns in parallel
-      final results = await Future.wait([
-        dbService.registeredCampaigns.first,
-        dbService.createdCampaigns.first,
-      ]);
-
       final fetchedUser = await dbService.getVolunteerUser();
-      final allCampaigns = [...results[0], ...results[1]];
 
       setState(() {
-        _campaignsCount = allCampaigns.length;
-        _volunteerHours = allCampaigns.fold(0, (sum, campaign) => sum + campaign.durationInHours);
-
         if (fetchedUser != null) {
           _updatedVolunteer = fetchedUser;
         }
@@ -63,9 +58,17 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    final VolunteerUser? providerVolunteer = Provider.of<VolunteerUser?>(context);
-    final VolunteerUser? volunteer = _updatedVolunteer ?? providerVolunteer;
+    super.build(context);
+
+    final Object? userObj = Provider.of<Object?>(context);
+    final VolunteerUser? providerVolunteer = userObj is VolunteerUser ? userObj : null;
+
+    // Use widget.volunteer if provided, otherwise fallback to provider
+    VolunteerUser? volunteer = _updatedVolunteer ?? providerVolunteer;
 
     // If volunteer is null, show a screen indicating the error
     if (volunteer == null) {
@@ -111,14 +114,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
               // Full name
               Text(
-                volunteer.firstName.isNotEmpty && volunteer.lastName.isNotEmpty ? '${volunteer.firstName} ${volunteer.lastName}' : 'Временен гост',
+                (volunteer.firstName.isNotEmpty || volunteer.lastName.isNotEmpty) 
+                    ? '${volunteer.firstName} ${volunteer.lastName}'.trim() 
+                    : 'Временен гост',
                 style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
               ),
 
               SizedBox(height: 10.0),
 
               // Edit Profile Button
-              if (volunteer.firstName.isNotEmpty && volunteer.lastName.isNotEmpty)
+              if (volunteer.firstName.isNotEmpty || volunteer.lastName.isNotEmpty)
               SizedBox(
                 width: double.infinity,
                 height: 45.0,
@@ -152,25 +157,42 @@ class _ProfilePageState extends State<ProfilePage> {
               SizedBox(height: 15.0),
 
               // Quick stats
-              Container(
-                padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15.0),
-                  boxShadow: [
-                    BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: Offset(0, 5)),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem('$_campaignsCount', 'Кампании'),
-                    _buildVerticalDivider(),
-                    _buildStatItem('$_volunteerHours', 'Часа'),
-                    _buildVerticalDivider(),
-                    _buildStatItem(memberSince, 'Член от'),
-                  ],
-                ),
+              StreamBuilder<List<Campaign>>(
+                stream: _registeredCampaignsStream,
+                builder: (context, registeredSnapshot) {
+                  return StreamBuilder<List<Campaign>>(
+                    stream: _createdCampaignsStream,
+                    builder: (context, createdSnapshot) {
+                      final registered = registeredSnapshot.data ?? [];
+                      final created = createdSnapshot.data ?? [];
+                      final allCampaigns = [...registered, ...created];
+                      
+                      final currentCampaignsCount = allCampaigns.length;
+                      final currentVolunteerHours = allCampaigns.fold(0, (sum, campaign) => sum + campaign.durationInHours);
+
+                      return Container(
+                        padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15.0),
+                          boxShadow: [
+                            BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: Offset(0, 5)),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem('$currentCampaignsCount', 'Кампании'),
+                            _buildVerticalDivider(),
+                            _buildStatItem('$currentVolunteerHours', 'Часа'),
+                            _buildVerticalDivider(),
+                            _buildStatItem(memberSince, 'Член от'),
+                          ],
+                        ),
+                      );
+                    }
+                  );
+                }
               ),
 
               SizedBox(height: 10.0),
@@ -182,9 +204,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 Colors.orange.shade100,
                 accentAmber,
                 () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AchievementsPage()),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Постиженията ще бъдат налични скоро!",
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: blueSecondary,
+                    ),
                   );
                 },),
 
@@ -213,14 +240,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 Colors.blue.shade100,
                 Colors.blue,
                 () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SettingsPage()),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Настройките ще бъдат налични скоро!",
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: blueSecondary,
+                    ),
                   );
                 },
               ),
 
               SizedBox(height: 20.0),
+
 
               // Recent activity
               Align(
@@ -235,12 +268,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
               // Recent campaigns list (registered + created, sorted by date)
               StreamBuilder<List<Campaign>>(
-                stream: DatabaseService(uid: volunteer.uid).registeredCampaigns,
+                stream: _registeredCampaignsStream,
                 builder: (context, registeredSnapshot) {
                                     
                   // Nested StreamBuilder for created campaigns
                   return StreamBuilder<List<Campaign>>(
-                    stream: DatabaseService(uid: volunteer.uid).createdCampaigns,
+                    stream: _createdCampaignsStream,
                     builder: (context, createdSnapshot) {
                       
                       if (registeredSnapshot.connectionState == ConnectionState.waiting && 
@@ -318,6 +351,113 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       );
                     },
+                  );
+                },
+              ),
+              SizedBox(height: 20.0),
+
+              // NGOs
+              StreamBuilder<List<NGO>>(
+                stream: DatabaseService(uid: volunteer.uid).userNgos,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final ngos = snapshot.data!;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Организации',
+                          style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SizedBox(height: 10.0),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12.0),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: Offset(0, 2)),
+                          ],
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: ngos.length,
+                          separatorBuilder: (context, index) => Divider(height: 1, indent: 30, endIndent: 30),
+                          itemBuilder: (context, index) {
+                            final ngo = ngos[index];
+                            final isAdmin = ngo.admins.contains(volunteer.uid);
+                            final isMember = ngo.members.contains(volunteer.uid);
+                            
+                            Color tagColor;
+                            String tagText;
+                            if (isAdmin) {
+                              tagColor = accentAmber;
+                              tagText = 'Администратор';
+                            } else if (isMember) {
+                              tagColor = blueSecondary;
+                              tagText = 'Членувате';
+                            } else {
+                              tagColor = greenPrimary;
+                              tagText = 'Следвате';
+                            }
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.grey.shade200,
+                                backgroundImage: (ngo.logoUrl != null && ngo.logoUrl!.isNotEmpty)
+                                    ? NetworkImage(ngo.logoUrl!) as ImageProvider
+                                    : null,
+                                child: (ngo.logoUrl == null || ngo.logoUrl!.isEmpty)
+                                    ? Icon(Icons.business, color: Colors.grey, size: 20)
+                                    : null,
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      ngo.name,
+                                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: tagColor.withAlpha(30),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      tagText,
+                                      style: TextStyle(color: tagColor, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  )
+                                ],
+                              ),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PublicNgoScreen(ngo: ngo),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 20.0),
+                    ],
                   );
                 },
               ),

@@ -34,6 +34,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         autoPlay: true,
         looping: false,
         aspectRatio: _videoPlayerController.value.aspectRatio,
+        optionsTranslation: OptionsTranslation(
+          playbackSpeedButtonText: 'Скорост на възпроизвеждане',
+          subtitlesButtonText: 'Субтитри',
+          cancelButtonText: 'Отказ',
+        ),
         errorBuilder: (context, errorMessage) {
           return Center(
             child: Text(errorMessage, style: const TextStyle(color: Colors.white)),
@@ -59,11 +64,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Center(
-        // Show loading indicator until video is ready
-        child: _chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
-            ? Chewie(controller: _chewieController!)
-            : const CircularProgressIndicator(),
+      body: SafeArea(
+        child: Center(
+          // Show loading indicator until video is ready
+          child: _chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
+              ? Theme(
+                  data: Theme.of(context).copyWith(
+                    listTileTheme: const ListTileThemeData(
+                      iconColor: Colors.black,
+                      textColor: Colors.black,
+                      titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                      subtitleTextStyle: TextStyle(fontSize: 14, color: Colors.black87),
+                      minVerticalPadding: 16.0,
+                    ),
+                    textTheme: Theme.of(context).textTheme.copyWith(
+                      titleMedium: const TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.w500), 
+                      bodyLarge: const TextStyle(fontSize: 14, color: Colors.black, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  child: Chewie(controller: _chewieController!),
+                )
+              : const CircularProgressIndicator(),
+        ),
       ),
     );
   }

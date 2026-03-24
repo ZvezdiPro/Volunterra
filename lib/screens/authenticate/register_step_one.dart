@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:volunteer_app/shared/constants.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/models/registration_data.dart';
+import 'package:volunteer_app/screens/authenticate/ngo_register.dart';
 
 class RegisterStepOne extends StatefulWidget {
 
@@ -138,6 +139,33 @@ class _RegisterStepOneState extends State<RegisterStepOne> {
                   ),
                   onTap: () {
                     widget.toggleView();
+                  },
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 20.0),
+            
+            // Link to NGO registration
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0), 
+                    child: const Text(
+                      'НПО? Регистрирайте се тук!',
+                      style: TextStyle(
+                        color: blueSecondary, 
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NgoRegister()),
+                    );
                   },
                 ),
               ],
