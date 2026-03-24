@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:volunteer_app/models/campaign.dart';
@@ -23,6 +26,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
   final DateFormat _dateFormatter = DateFormat('dd MMM yyyy', 'bg');
   final DateFormat _timeFormatter = DateFormat('HH:mm');
   final GlobalKey<FormState> _generalFormKey = GlobalKey<FormState>();
+  bool get _isEnded => widget.campaign.status == 'ended';
 
   // General State
   late TextEditingController _titleController;
@@ -40,6 +44,10 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
   late double _latitude;
   late double _longitude;
   late List<String> _categories;
+  String? _currentImageUrl;
+  XFile? _newImageFile;
+  bool _imageRemoved = false;
+  final ImagePicker _picker = ImagePicker();
 
   bool _hasChanges = false;
   bool _isSaving = false;
@@ -66,6 +74,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
     _latitude = widget.campaign.latitude;
     _longitude = widget.campaign.longitude;
     _categories = List.from(widget.campaign.categories);
+    _currentImageUrl = widget.campaign.imageUrl;
 
     _updateControllers();
     _loadVolunteers(widget.campaign.registeredVolunteersUids);
@@ -85,6 +94,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
       _latitude = campaign.latitude;
       _longitude = campaign.longitude;
       _categories = List.from(campaign.categories);
+      _currentImageUrl = campaign.imageUrl;
 
       _updateControllers();
       _loadVolunteers(campaign.registeredVolunteersUids);
@@ -142,6 +152,53 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        // File size validation (max 10 MB)
+        int fileSizeInBytes = await pickedFile.length();
+        if (fileSizeInBytes > 10 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Снимката е твърде голяма! Максималният размер е 10 MB.',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        setState(() {
+          _newImageFile = pickedFile;
+          _imageRemoved = false;
+          _hasChanges = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  void _removeImage() {
+    setState(() {
+      _newImageFile = null;
+      _imageRemoved = true;
+      _currentImageUrl = null;
+      _hasChanges = true;
+    });
+  }
+
   // Save changes for general tab
   Future<void> _saveChanges() async {
     if (!_hasChanges) return;
@@ -162,6 +219,34 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
         'categories': _categories,
       };
 
+      // Handle image changes
+      if (_newImageFile != null) {
+        // Reuse the existing image's folder so we don't create a new folder on every update.
+        // If no image exists yet, create a fresh timestamp-based folder.
+        String uniquePath;
+        if (_currentImageUrl != null && _currentImageUrl!.isNotEmpty) {
+          final existingRef = FirebaseStorage.instance.refFromURL(_currentImageUrl!);
+          uniquePath = existingRef.parent?.fullPath ?? 'campaign_uploads/${DateTime.now().millisecondsSinceEpoch}';
+        } else {
+          uniquePath = 'campaign_uploads/${DateTime.now().millisecondsSinceEpoch}';
+        }
+        String? downloadUrl = await _db.uploadImage(uniquePath, _newImageFile!, null);
+
+        if (downloadUrl != null) {
+          // Delete old image file
+          if (_currentImageUrl != null && _currentImageUrl!.isNotEmpty) {
+            await _db.deleteImage(_currentImageUrl!);
+          }
+          updateData['imageUrl'] = downloadUrl;
+        }
+      } else if (_imageRemoved) {
+        // Delete old image
+        if (_currentImageUrl != null && _currentImageUrl!.isNotEmpty) {
+          await _db.deleteImage(_currentImageUrl!);
+        }
+        updateData['imageUrl'] = '';
+      }
+
       await _db.updateCampaignGeneralInfo(widget.campaign.id, updateData);
 
       if (mounted) {
@@ -179,6 +264,11 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
         setState(() {
           _hasChanges = false;
           _isSaving = false;
+          _newImageFile = null;
+          _imageRemoved = false;
+          if (updateData.containsKey('imageUrl')) {
+            _currentImageUrl = updateData['imageUrl'];
+          }
         });
       }
     } catch (e) {
@@ -818,6 +908,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_isEnded) _buildEndedCampaignBanner(),
             const Text(
               "Основна информация",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -835,9 +926,10 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
             TextFormField(
               controller: _titleController,
               maxLength: 50,
+              enabled: !_isEnded,
               decoration: textInputDecoration.copyWith(
                 hintText: "Например: Почистване на парк",
-                fillColor: Colors.white,
+                fillColor: _isEnded ? Colors.grey[100] : Colors.white,
               ),
               onChanged: (_) => _onFieldChanged(),
               validator: (val) {
@@ -855,8 +947,10 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
             TextFormField(
               controller: _descriptionController,
               maxLength: 300,
+              enabled: !_isEnded,
               decoration: textInputDecoration.copyWith(
                 hintText: "Опишете целта на тази кампания...",
+                fillColor: _isEnded ? Colors.grey[100] : Colors.white,
               ),
               maxLines: 4,
               onChanged: (_) => _onFieldChanged(),
@@ -891,10 +985,12 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
             TextFormField(
               controller: _locationController,
               readOnly: true,
-              onTap: _selectLocationOnMap,
+              enabled: !_isEnded,
+              onTap: _isEnded ? null : _selectLocationOnMap,
               decoration: textInputDecoration.copyWith(
                 hintText: 'Град или село',
                 prefixIcon: const Icon(Icons.location_on, color: greenPrimary),
+                fillColor: _isEnded ? Colors.grey[100] : Colors.white,
               ),
               validator: (val) =>
                   val!.isEmpty ? 'Въведете местоположение' : null,
@@ -907,8 +1003,10 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
             TextFormField(
               controller: _instructionsController,
               maxLength: 300,
+              enabled: !_isEnded,
               decoration: textInputDecoration.copyWith(
                 hintText: "Добавете инструкции...",
+                fillColor: _isEnded ? Colors.grey[100] : Colors.white,
               ),
               maxLines: 3,
               onChanged: (_) => _onFieldChanged(),
@@ -925,6 +1023,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
             DropdownButtonFormField<String>(
               decoration: textInputDecoration.copyWith(
                 hintText: 'Изберете категория',
+                fillColor: _isEnded ? Colors.grey[100] : Colors.white,
               ),
               icon: const Icon(Icons.arrow_drop_down, color: greenPrimary),
               dropdownColor: Colors.white,
@@ -933,7 +1032,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                   ? 'Моля, изберете категория.'
                   : null,
               isExpanded: true,
-              onChanged: (String? newValue) {
+              onChanged: _isEnded ? null : (String? newValue) {
                 if (newValue != null) {
                   setState(() {
                     _categories = [newValue];
@@ -951,43 +1050,120 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
               }).toList(),
             ),
 
+            const SizedBox(height: 20),
+
+            // Image Upload Section
+            Text('Изображение на кампанията', style: textFormFieldHeading),
+            const SizedBox(height: 10),
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(15),
+                      image: _newImageFile != null
+                          ? DecorationImage(
+                              image: FileImage(File(_newImageFile!.path)),
+                              fit: BoxFit.cover,
+                            )
+                          : (_currentImageUrl != null && _currentImageUrl!.isNotEmpty)
+                              ? DecorationImage(
+                                  image: NetworkImage(_currentImageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                    ),
+                    child: (_newImageFile == null && (_currentImageUrl == null || _currentImageUrl!.isEmpty))
+                        ? const Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _isEnded ? null : _pickImage,
+                        icon: const Icon(Icons.photo_library, size: 18),
+                        label: Text(_currentImageUrl == null || _currentImageUrl!.isEmpty ? "Добави снимка" : "Промени"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: greenPrimary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      if ((_currentImageUrl != null && _currentImageUrl!.isNotEmpty) || _newImageFile != null) ...[
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          onPressed: _isEnded ? null : _removeImage,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text("Премахни"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 30),
 
             // Save Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                icon: _isSaving
-                    ? const SizedBox.shrink()
-                    : const Icon(Icons.save, color: Colors.white),
-                label: _isSaving
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+            if (!_isEnded)
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  icon: _isSaving
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.save, color: Colors.white),
+                  label: _isSaving
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Запази промените",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                      )
-                    : const Text(
-                        "Запази промените",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: greenPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: greenPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
                   ),
-                  elevation: 0,
+                  onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
                 ),
-                onPressed: (_hasChanges && !_isSaving) ? _saveChanges : null,
               ),
-            ),
             const SizedBox(height: 10),
           ],
         ),
@@ -1116,7 +1292,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (isMainOrganizer)
+                            if (isMainOrganizer && !_isEnded)
                               IconButton(
                                 tooltip: widget.campaign.coorganizersIds.contains(user.uid)
                                     ? "Премахни съорганизатор"
@@ -1131,7 +1307,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                                 ),
                                 onPressed: () => _toggleCoorganizerStatus(user),
                               ),
-                            if (user.uid != currentUid && user.uid != widget.campaign.organizerId)
+                            if (user.uid != currentUid && user.uid != widget.campaign.organizerId && !_isEnded)
                               IconButton(
                                 icon: const Icon(
                                   Icons.person_remove_outlined,
@@ -1235,11 +1411,11 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: _openTransferOwnershipDialog,
-                    child: const Text(
+                    onPressed: _isEnded ? null : _openTransferOwnershipDialog,
+                    child: Text(
                       "Прехвърляне на собственост",
                       style: TextStyle(
-                        color: Colors.black87,
+                        color: _isEnded ? Colors.grey : Colors.black87,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1282,17 +1458,17 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: _isEnded ? Colors.grey[300] : Colors.orange,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: _confirmToggleDelist,
+                    onPressed: _isEnded ? null : _confirmToggleDelist,
                     child: Text(
                       widget.campaign.isDelisted ? "Покажи" : "Скрий",
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _isEnded ? Colors.grey[600] : Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1333,17 +1509,17 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: _isEnded ? Colors.grey[300] : Colors.red,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: _confirmEndCampaign,
-                    child: const Text(
-                      "Прекрати кампанията",
+                    onPressed: _isEnded ? null : _confirmEndCampaign,
+                    child: Text(
+                      _isEnded ? "Кампанията е прекратена" : "Прекрати кампанията",
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _isEnded ? Colors.grey[600] : Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1354,6 +1530,35 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
           ),
 
           const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEndedCampaignBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20).copyWith(top: 5),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lock_outline, color: Colors.orange.shade800, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Тази кампания е прекратена. Информацията за нея вече не може да бъде променяна.",
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.orange.shade900,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1379,12 +1584,14 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
               child: TextFormField(
                 controller: dateCtrl,
                 readOnly: true,
-                onTap: () => _pickDate(isStart: isStart),
+                enabled: !_isEnded,
+                onTap: _isEnded ? null : () => _pickDate(isStart: isStart),
                 decoration: textInputDecoration.copyWith(
-                  prefixIcon: const Icon(
+                  fillColor: _isEnded ? Colors.grey[100] : Colors.white,
+                  prefixIcon: Icon(
                     Icons.calendar_today,
                     size: 18,
-                    color: greenPrimary,
+                    color: _isEnded ? Colors.grey : greenPrimary,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -1400,12 +1607,14 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
               child: TextFormField(
                 controller: timeCtrl,
                 readOnly: true,
-                onTap: () => _pickTime(isStart: isStart),
+                enabled: !_isEnded,
+                onTap: _isEnded ? null : () => _pickTime(isStart: isStart),
                 decoration: textInputDecoration.copyWith(
-                  prefixIcon: const Icon(
+                  fillColor: _isEnded ? Colors.grey[100] : Colors.white,
+                  prefixIcon: Icon(
                     Icons.access_time,
                     size: 18,
-                    color: greenPrimary,
+                    color: _isEnded ? Colors.grey : greenPrimary,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,

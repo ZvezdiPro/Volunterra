@@ -49,6 +49,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   Map<String, String>? _editingMessage;
   bool _isUploading = false;
   bool _isSharing = false;
+  bool _showOrganizerEndBanner = true;
 
   late final Stream<DocumentSnapshot> _campaignStream;
   late final Stream<QuerySnapshot> _messagesStream;
@@ -933,15 +934,94 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     ),
                   ),
 
-               ChatInputArea(
-                 onSendText: _handleSendText,
-                 onSendAudio: _handleSendAudio,
-                 onAttachmentTap: _handleAttachment,
-                 editingMessage: _editingMessage?['text'],
-                 replyingMessage: _replyMessage,
-                 onCancelEdit: () => setState(() => _editingMessage = null),
-                 onCancelReply: () => setState(() => _replyMessage = null),
-               ),
+              if (_currentCampaign.status == 'ended')
+                Container(
+                  width: double.infinity,
+                  color: Colors.red.withAlpha(30),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.red, size: 20),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "Тази кампания е прекратена от нейния организатор.",
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (_currentCampaign.status == 'ended' && _isOrganizer && _showOrganizerEndBanner)
+                Container(
+                  width: double.infinity,
+                  color: blueSecondary.withAlpha(30),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.admin_panel_settings, color: blueSecondary, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          "Като организатор, все още можете да изпращате съобщения в този чат.",
+                          style: TextStyle(color: blueSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18, color: blueSecondary),
+                        onPressed: () => setState(() => _showOrganizerEndBanner = false),
+                        constraints: const BoxConstraints(),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+
+               if (!_isOrganizer && _currentCampaign.status == 'ended')
+                 Container(
+                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                   color: Colors.white,
+                   child: SafeArea(
+                     top: false,
+                     child: Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                       decoration: BoxDecoration(
+                         color: Colors.grey[100],
+                         borderRadius: BorderRadius.circular(24),
+                         border: Border.all(color: Colors.grey[300]!)
+                       ),
+                       child: Row(
+                         mainAxisAlignment: MainAxisAlignment.center,
+                         children: [
+                           Icon(Icons.lock_outline, size: 18, color: Colors.grey[600]),
+                           const SizedBox(width: 12),
+                           Expanded(
+                             child: Text(
+                               "Не можете да изпращате съобщения в чата, защото кампанията е прекратена.",
+                               textAlign: TextAlign.center,
+                               style: TextStyle(
+                                 color: Colors.grey[600], 
+                                 fontSize: 13, 
+                                 fontWeight: FontWeight.w500,
+                               ),
+                             ),
+                           ),
+                         ],
+                       ),
+                     ),
+                   ),
+                 )
+               else
+                ChatInputArea(
+                  onSendText: _handleSendText,
+                  onSendAudio: _handleSendAudio,
+                  onAttachmentTap: _handleAttachment,
+                  editingMessage: _editingMessage?['text'],
+                  replyingMessage: _replyMessage,
+                  onCancelEdit: () => setState(() => _editingMessage = null),
+                  onCancelReply: () => setState(() => _replyMessage = null),
+                ),
             ],
           ),
 

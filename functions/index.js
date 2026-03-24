@@ -814,3 +814,81 @@ exports.notifyOnNgoChatMessage = functions.firestore
 
         return null;
     });
+
+exports.notifyOnCampaignEnded = functions.firestore
+    .document("campaigns/{campaignId}")
+    .onUpdate(async (change, context) => {
+        const newValue = change.after.data();
+        const previousValue = change.before.data();
+
+        // Only fire when status changes to 'ended'
+        if (previousValue.status === "ended" || newValue.status !== "ended") {
+            return null;
+        }
+
+        const campaignTitle = newValue.title || "Кампания";
+        const registeredVolunteers = newValue.registeredVolunteersUids || [];
+
+        if (registeredVolunteers.length === 0) {
+            console.log(`No volunteers to notify for ended campaign: ${campaignTitle}`);
+            return null;
+        }
+
+        // Fetch FCM tokens for all registered volunteers in chunks of 30
+        const tokens = [];
+        try {
+            const chunks = [];
+            for (let i = 0; i < registeredVolunteers.length; i += 30) {
+                chunks.push(registeredVolunteers.slice(i, i + 30));
+            }
+
+            for (const chunk of chunks) {
+                const snapshot = await admin.firestore()
+                    .collection("volunteers")
+                    .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                    .get();
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.fcmToken) {
+                        tokens.push(data.fcmToken);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching volunteer tokens for ended campaign:", error);
+            return null;
+        }
+
+        if (tokens.length === 0) {
+            console.log("No FCM tokens found for registered volunteers.");
+            return null;
+        }
+
+        const baseMessage = {
+            notification: {
+                title: "Кампанията е прекратена",
+                body: `Организаторът прекрати кампания "${campaignTitle}".`,
+            },
+            data: {
+                campaignId: context.params.campaignId,
+                type: "campaign_ended",
+            },
+        };
+
+        const promises = tokens.map(token => {
+            const message = { ...baseMessage, token: token };
+            return admin.messaging().send(message);
+        });
+
+        try {
+            const responses = await Promise.allSettled(promises);
+            const successCount = responses.filter(r => r.status === "fulfilled").length;
+            const failureCount = responses.length - successCount;
+            console.log(`Campaign ended "${campaignTitle}": ${successCount} notifications sent, ${failureCount} failed.`);
+        } catch (error) {
+            console.error("Fatal error sending campaign ended notifications:", error);
+        }
+
+        return null;
+    });

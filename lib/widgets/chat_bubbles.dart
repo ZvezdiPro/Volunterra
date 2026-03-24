@@ -186,6 +186,8 @@ class ChatBubble extends StatelessWidget {
                     ),
 
                   // Content based on message type
+                  if (!isMe && type != 'text')
+                    const SizedBox(height: 4),
                   if (type == 'audio' && fileUrl != null)
                     AudioBubble(
                       url: fileUrl!,
