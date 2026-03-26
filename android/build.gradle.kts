@@ -7,6 +7,7 @@ allprojects {
 
 plugins {
     id("com.google.gms.google-services") version "4.4.4" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.10" apply false
 }
 
 val newBuildDir: Directory =
