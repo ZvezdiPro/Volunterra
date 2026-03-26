@@ -41,7 +41,7 @@ dependencies:
   provider: ^6.1.5+1
   firebase_core: ^4.2.0
   flutter_spinkit: ^5.2.2
-  smooth_page_indicator: ^1.2.1
+  smooth_page_indicator: ^2.0.1
   intl: ^0.20.2
   google_sign_in: ^6.3.0
   flutter_facebook_auth: ^7.1.2
@@ -52,7 +52,7 @@ dependencies:
   video_player: ^2.10.1
   chewie: ^1.13.0
   file_picker: ^10.3.8
-  flutter_contacts: ^1.1.9+2
+  flutter_contacts: ^2.0.1
   audioplayers: ^6.5.1
   record: ^6.1.2
   path_provider: ^2.1.5
@@ -82,7 +82,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

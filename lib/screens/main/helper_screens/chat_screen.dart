@@ -389,10 +389,13 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
             setState(() => _isUploading = false);
          }
       } else if (type == 'contact') {
-        if (await FlutterContacts.requestPermission(readonly: true)) {
-          final Contact? contact = await FlutterContacts.openExternalPick();
-          if (contact != null && contact.phones.isNotEmpty) {
-            _sendMessage(type: 'contact', contactName: contact.displayName, contactPhone: contact.phones.first.number);
+        if ((await FlutterContacts.permissions.request(PermissionType.read)).name == 'granted') {
+          final String? contactId = await FlutterContacts.native.showPicker();
+          if (contactId != null) {
+            final Contact? contact = await FlutterContacts.get(contactId, properties: {ContactProperty.phone});
+            if (contact != null && contact.phones.isNotEmpty) {
+              _sendMessage(type: 'contact', contactName: contact.displayName, contactPhone: contact.phones.first.number);
+            }
           }
         }
       }

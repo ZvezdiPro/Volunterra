@@ -45,7 +45,7 @@ class _VolunteerAppState extends State<VolunteerApp> {
     return StreamProvider<Object?>.value (
       initialData: null,
       value: _authService.user,
-      catchError: (_, __) => null,
+      catchError: (_, _) => null,
       child: MaterialApp(
         scaffoldMessengerKey: scaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
