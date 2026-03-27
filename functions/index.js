@@ -92,6 +92,56 @@ exports.notifyOnRegistration = functions.firestore
                     console.error("Error sending goal reached notification:", error);
                 }
             }
+        } else if (newVolunteers.length < oldVolunteers.length) {
+            // Someone left
+            const removedUid = oldVolunteers.find((uid) => !newVolunteers.includes(uid));
+
+            if (!removedUid) return null;
+
+            const organizerId = newValue.organizerId;
+
+            // Fetch organizer details to get FCM token
+            const organizerDoc = await admin.firestore().collection("volunteers").doc(organizerId).get();
+
+            if (!organizerDoc.exists) {
+                console.log("Organizer not found");
+                return null;
+            }
+
+            const organizerData = organizerDoc.data();
+            const fcmToken = organizerData.fcmToken;
+
+            if (!fcmToken) {
+                console.log("No FCM token found for organizer.");
+                return null;
+            }
+
+            // Fetch volunteer details to include their name in the notification
+            const volunteerDoc = await admin.firestore().collection("volunteers").doc(removedUid).get();
+            let volunteerName = "Доброволец";
+            if (volunteerDoc.exists) {
+                const volData = volunteerDoc.data();
+                volunteerName = `${volData.firstName} ${volData.lastName}`;
+            }
+
+            const message = {
+                notification: {
+                    title: "Отписан доброволец",
+                    body: `${volunteerName} се отписа от вашата кампания: ${newValue.title}`,
+                },
+                data: {
+                    campaignId: context.params.campaignId,
+                    type: "unregistration",
+                },
+                token: fcmToken
+            };
+
+            try {
+                const response = await admin.messaging().send(message);
+                console.log("Unregistration notification sent successfully:", response);
+            } catch (error) {
+                console.error("Error sending unregistration notification:", error);
+            }
         }
         return null;
     });
