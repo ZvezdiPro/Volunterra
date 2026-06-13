@@ -89,7 +89,7 @@ class _CampaignParticipantsScreenState extends State<CampaignParticipantsScreen>
                     final isNgo = _organizer is NGO;
                     final isVolunteer = _organizer is VolunteerUser;
                     final String name = isNgo ? (_organizer as NGO).name : (isVolunteer ? "${(_organizer as VolunteerUser).firstName} ${(_organizer as VolunteerUser).lastName}" : "Неизвестен");
-                    final String email = isNgo ? (_organizer as NGO).email : (isVolunteer ? (_organizer as VolunteerUser).email : "");
+                    final String email = isNgo ? (_organizer as NGO).email : (isVolunteer ? ((_organizer as VolunteerUser).showEmailPublicly ? (_organizer as VolunteerUser).email : "") : "");
                     final String? avatarUrl = isNgo ? (_organizer as NGO).logoUrl : (isVolunteer ? (_organizer as VolunteerUser).avatarUrl : null);
                     final String initial = name.isNotEmpty ? name[0].toUpperCase() : "?";
 
@@ -117,7 +117,7 @@ class _CampaignParticipantsScreenState extends State<CampaignParticipantsScreen>
                             )
                           ],
                         ),
-                        subtitle: Text(email, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        subtitle: email.isNotEmpty ? Text(email, style: const TextStyle(fontSize: 12, color: Colors.grey)) : null,
                         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                         onTap: () {
                            if (isNgo) {
@@ -188,13 +188,13 @@ class _CampaignParticipantsScreenState extends State<CampaignParticipantsScreen>
                             )
                         ],
                       ),
-                      subtitle: Text(
+                      subtitle: user.showEmailPublicly ? Text(
                         user.email,
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
                         ),
-                      ),
+                      ) : null,
                       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                       onTap: () {
                         Navigator.push(

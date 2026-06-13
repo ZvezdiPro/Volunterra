@@ -8,7 +8,8 @@ import 'package:volunteer_app/screens/wrapper.dart';
 import 'package:volunteer_app/services/authenticate.dart';
 import 'package:volunteer_app/shared/colors.dart';
 
-final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -26,7 +27,7 @@ void main() async {
 
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
+
   runApp(const VolunteerApp());
 }
 
@@ -43,7 +44,7 @@ class _VolunteerAppState extends State<VolunteerApp> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamProvider<Object?>.value (
+    return StreamProvider<Object?>.value(
       initialData: null,
       value: _authService.user,
       catchError: (_, _) => null,
@@ -57,13 +58,15 @@ class _VolunteerAppState extends State<VolunteerApp> {
             color: cardGrey,
             surfaceTintColor: Colors.transparent,
           ),
+          dialogTheme: const DialogThemeData(backgroundColor: backgroundGrey),
+          popupMenuTheme: const PopupMenuThemeData(
+            color: backgroundGrey,
+            surfaceTintColor: Colors.transparent,
+          ),
         ),
-        
+
         // Supported locales (languages)
-        supportedLocales: [
-          Locale('en', ''),
-          Locale('bg', ''),
-        ],
+        supportedLocales: [Locale('en', ''), Locale('bg', '')],
 
         // The localization delegates
         // which decide how to load the localized resources
@@ -78,7 +81,7 @@ class _VolunteerAppState extends State<VolunteerApp> {
 
         // The wrapper widget decides which page to show based on authentication state
         home: Wrapper(),
-      )
+      ),
     );
   }
 }

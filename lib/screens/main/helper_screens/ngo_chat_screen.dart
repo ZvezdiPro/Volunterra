@@ -563,7 +563,6 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
                       context: this.context,
                       builder: (BuildContext dialogContext) {
                         return AlertDialog(
-                          backgroundColor: Colors.white,
                           title: const Text('Изтриване на съобщение'),
                           content: const Text('Сигурни ли сте, че искате да изтриете това съобщение? Това действие не може да бъде отменено.'),
                           actions: [

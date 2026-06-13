@@ -268,6 +268,14 @@ class DatabaseService {
     });
   }
 
+  // Update email public visibility
+  Future<void> updateEmailVisibility(bool isPublic) async {
+    return await volunteerCollection.doc(uid).update({
+      'showEmailPublicly': isPublic,
+      'updatedAt': DateTime.now(),
+    });
+  }
+
   // Update user avatar URL
   Future<void> updateUserAvatar(String avatarUrl) async {
     return await volunteerCollection.doc(uid).update({'avatarUrl': avatarUrl});

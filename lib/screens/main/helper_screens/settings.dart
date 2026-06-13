@@ -4,6 +4,7 @@ import 'package:volunteer_app/screens/main/helper_screens/notification_settings.
 import 'package:volunteer_app/screens/main/helper_screens/profile_settings.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/shared/constants.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -77,16 +78,21 @@ class SettingsPage extends StatelessWidget {
                   bgColor: Colors.amber.shade100,
                   iconColor: Colors.amber.shade800,
                   showArrow: false,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "Тази функция ще бъде налична скоро!",
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        backgroundColor: blueSecondary,
-                      ),
-                    );
+                  onTap: () async {
+                    final Uri url = Uri.parse('https://docs.google.com/forms/d/e/1FAIpQLSeKRNV4sLmj01Y2J7yV_mpMXzXY-cZmusRzNL8guFPOl7Kf9Q/viewform?usp=header');
+                    if (!await launchUrl(url)) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Не може да се отвори връзката",
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
                   },
                 ),
               ],

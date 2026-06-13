@@ -152,6 +152,34 @@ class ProfileSettingsPage extends StatelessWidget {
             ),
             child: Column(
               children: [
+                StreamBuilder<VolunteerUser>(
+                  stream: DatabaseService(uid: FirebaseAuth.instance.currentUser?.uid).volunteerUserData,
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox.shrink();
+                    final bool isPublic = snapshot.data?.showEmailPublicly ?? false;
+                    return Column(
+                      children: [
+                        SwitchListTile(
+                          activeTrackColor: greenPrimary.withAlpha(100),
+                          activeThumbColor: greenPrimary,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+                          secondary: Container(
+                            padding: const EdgeInsets.all(8.0),
+                            decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8.0)),
+                            child: const Icon(Icons.email, color: Colors.blue),
+                          ),
+                          title: const Text('Публичен имейл', style: TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: const Text('Показване на имейла на други потребители', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          value: isPublic,
+                          onChanged: (val) {
+                            DatabaseService(uid: FirebaseAuth.instance.currentUser?.uid).updateEmailVisibility(val);
+                          },
+                        ),
+                        const Divider(height: 1, indent: 30, endIndent: 30),
+                      ]
+                    );
+                }
+              ),
                 _buildSettingsTile(
                   context: context,
                   icon: Icons.lock,
