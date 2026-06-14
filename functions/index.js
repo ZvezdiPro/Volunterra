@@ -942,3 +942,116 @@ exports.notifyOnCampaignEnded = functions.firestore
 
         return null;
     });
+
+exports.notifyOnTaskAssigned = functions.firestore
+    .document("campaigns/{campaignId}/tasks/{taskId}")
+    .onCreate(async (snap, context) => {
+        const taskData = snap.data();
+        const assigneeIds = taskData.assigneeIds || [];
+        const assignerId = taskData.assignerId;
+        const campaignId = context.params.campaignId;
+
+        // Fetch campaign details
+        const campaignDoc = await admin.firestore().collection("campaigns").doc(campaignId).get();
+        if (!campaignDoc.exists) return null;
+        const campaignTitle = campaignDoc.data().title || "Кампания";
+
+        // Don't notify if assigning to self
+        const validAssignees = assigneeIds.filter(id => id !== assignerId);
+        if (validAssignees.length === 0) return null;
+
+        let tokens = [];
+        for (const uid of validAssignees) {
+            const assigneeDoc = await admin.firestore().collection("volunteers").doc(uid).get();
+            if (assigneeDoc.exists && assigneeDoc.data().fcmToken) {
+                tokens.push(assigneeDoc.data().fcmToken);
+            }
+        }
+
+        if (tokens.length === 0) return null;
+
+        const message = {
+            notification: {
+                title: "Нова задача!",
+                body: `Имате нова задача в кампания "${campaignTitle}": ${taskData.title}`,
+            },
+            data: {
+                campaignId: campaignId,
+                type: "task_assigned",
+            }
+        };
+
+        const promises = tokens.map(token => admin.messaging().send({ ...message, token: token }));
+
+        try {
+            await Promise.allSettled(promises);
+            console.log("Task assigned notifications sent for task", taskData.title);
+        } catch (error) {
+            console.error("Error sending task assigned notification:", error);
+        }
+        return null;
+    });
+
+exports.notifyOnTaskCompleted = functions.firestore
+    .document("campaigns/{campaignId}/tasks/{taskId}")
+    .onUpdate(async (change, context) => {
+        const newValue = change.after.data();
+        const previousValue = change.before.data();
+        const campaignId = context.params.campaignId;
+
+        // Only notify if isCompleted changed from false to true
+        if (newValue.isCompleted === true && previousValue.isCompleted === false) {
+            const assignerId = newValue.assignerId;
+            const assigneeIds = newValue.assigneeIds || [];
+
+            // Fetch campaign details
+            const campaignDoc = await admin.firestore().collection("campaigns").doc(campaignId).get();
+            if (!campaignDoc.exists) return null;
+            const campaignData = campaignDoc.data();
+            const campaignTitle = campaignData.title || "Кампания";
+
+            // If the organizer completed their own task alone, don't notify them
+            if (assigneeIds.length === 1 && assigneeIds[0] === assignerId) return null;
+
+            // We need to notify the organizer/assigner. We'll send it to the assigner.
+            let tokens = [];
+            const assignerDoc = await admin.firestore().collection("volunteers").doc(assignerId).get();
+            if (assignerDoc.exists && assignerDoc.data().fcmToken) {
+                tokens.push(assignerDoc.data().fcmToken);
+            }
+            
+            // Also notify campaign organizer if assigner is someone else (like a coorganizer)
+            const organizerId = campaignData.organizerId;
+            if (organizerId !== assignerId) {
+                const orgDoc = await admin.firestore().collection("volunteers").doc(organizerId).get();
+                if (orgDoc.exists && orgDoc.data().fcmToken) {
+                    tokens.push(orgDoc.data().fcmToken);
+                }
+            }
+
+            if (tokens.length === 0) return null;
+
+            const assigneeName = assigneeIds.length > 1 ? "Някой от изпълнителите" : "Доброволец";
+
+            const message = {
+                notification: {
+                    title: "Задача завършена!",
+                    body: `${assigneeName} завърши задача "${newValue.title}" в кампания "${campaignTitle}".`,
+                },
+                data: {
+                    campaignId: campaignId,
+                    type: "task_completed",
+                }
+            };
+
+            const promises = tokens.map(token => admin.messaging().send({ ...message, token: token }));
+
+            try {
+                await Promise.allSettled(promises);
+                console.log("Task completed notifications sent for task", newValue.title);
+            } catch (error) {
+                console.error("Error sending task completed notifications:", error);
+            }
+        }
+        return null;
+    });

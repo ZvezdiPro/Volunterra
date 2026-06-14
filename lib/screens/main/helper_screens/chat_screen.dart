@@ -26,6 +26,8 @@ import 'package:volunteer_app/screens/main/helper_screens/campaign_info_screen.d
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_participants_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/my_tasks_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/all_tasks_screen.dart';
 import 'package:volunteer_app/widgets/chat_bubbles.dart';
 
 // Main screen for campaign chat widget
@@ -950,6 +952,26 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                 );
               } else if (value == 'leave') {
                 _confirmLeaveCampaign(context);
+              } else if (value == 'my_tasks') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MyTasksScreen(
+                      campaignId: _currentCampaign.id,
+                      currentUserId: _currentUid,
+                    ),
+                  ),
+                );
+              } else if (value == 'all_tasks') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AllTasksScreen(
+                      campaign: _currentCampaign,
+                      currentUserId: _currentUid,
+                    ),
+                  ),
+                );
               }
             },
             // The options in the menu
@@ -971,6 +993,35 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                       ],
                     ),
                   ),
+
+                // All tasks option (for organizers only)
+                if (_isOrganizer)
+                  const PopupMenuItem<String>(
+                    value: 'all_tasks',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.format_list_bulleted,
+                          color: Colors.black54,
+                          size: 20,
+                        ),
+                        SizedBox(width: 12),
+                        Text('Задачи'),
+                      ],
+                    ),
+                  ),
+
+                // My tasks option
+                const PopupMenuItem<String>(
+                  value: 'my_tasks',
+                  child: Row(
+                    children: [
+                      Icon(Icons.assignment, color: Colors.black54, size: 20),
+                      SizedBox(width: 12),
+                      Text('Моите задачи'),
+                    ],
+                  ),
+                ),
 
                 // Participants option
                 const PopupMenuItem<String>(

@@ -54,6 +54,11 @@ class _VolunteerAppState extends State<VolunteerApp> {
         title: 'Volunteer App',
         theme: ThemeData(
           primarySwatch: Colors.green,
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: blueSecondary,
+            selectionColor: blueSecondary.withAlpha(76),
+            selectionHandleColor: blueSecondary,
+          ),
           cardTheme: const CardThemeData(
             color: cardGrey,
             surfaceTintColor: Colors.transparent,
