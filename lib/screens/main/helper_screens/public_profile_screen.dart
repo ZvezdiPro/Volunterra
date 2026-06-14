@@ -97,7 +97,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardGrey,
                     borderRadius: BorderRadius.circular(15.0),
                     boxShadow: [
                       BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, 5)),
@@ -132,13 +132,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     width: double.infinity,
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: cardGrey, borderRadius: BorderRadius.circular(12)),
                     child: const Text('Няма скорошна активност.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
                   )
                 else
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cardGrey,
                       borderRadius: BorderRadius.circular(12.0),
                       boxShadow: [
                         BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: const Offset(0, 2)),
@@ -204,7 +204,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         const SizedBox(height: 10.0),
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: cardGrey,
                             borderRadius: BorderRadius.circular(12.0),
                             boxShadow: [
                               BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: const Offset(0, 2)),

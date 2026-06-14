@@ -58,14 +58,7 @@ class _CampaignDetailsScreenState extends State<CampaignDetailsScreen> {
 
   void _showGuestActionMessage(BuildContext context, {bool isNgo = false}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.orange,
-        content: Center(child: Text(isNgo ? 'Тази функция е достъпна само за доброволци!' : 'Тази функция е достъпна само за регистрирани потребители!', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(isNgo ? volunteerOnlySnackbar : guestSnackbar);
   }
 
   void _onBookmarkTap(BuildContext context, VolunteerUser? user, bool currentStatus, {bool isNgo = false}) async {

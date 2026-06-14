@@ -24,6 +24,8 @@ class VolunteerUser {
   final DateTime updatedAt;
   final List<String> bookmarkedCampaignsIds;
   final bool isOrganizer;
+  final Map<String, bool> notificationSettings;
+  final bool showEmailPublicly;
 
   // Constructor for temporary test and authentication
   VolunteerUser.forAuth({required this.uid})
@@ -42,7 +44,9 @@ class VolunteerUser {
       lastKnownLatitude = null,
       lastKnownLongitude = null,
       bookmarkedCampaignsIds = const [],
-      isOrganizer = false;
+      isOrganizer = false,
+      notificationSettings = const {},
+      showEmailPublicly = false;
 
   // Full Constructor
   VolunteerUser({
@@ -63,6 +67,8 @@ class VolunteerUser {
     this.lastKnownLongitude,
     this.bookmarkedCampaignsIds = const [],
     this.isOrganizer = false,
+    this.notificationSettings = const {},
+    this.showEmailPublicly = false,
   });
 
   // Factory constructor to create a VolunteerUser from Firestore document
@@ -87,6 +93,8 @@ class VolunteerUser {
       lastKnownLongitude: (data['lastKnownLongitude'] as num?)?.toDouble(),
       bookmarkedCampaignsIds: List<String>.from(data['bookmarkedCampaignsIds'] ?? []),
       isOrganizer: data['isOrganizer'] ?? false,
+      notificationSettings: Map<String, bool>.from(data['notificationSettings'] ?? {}),
+      showEmailPublicly: data['showEmailPublicly'] ?? false,
     );
   }
 }

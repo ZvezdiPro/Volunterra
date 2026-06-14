@@ -108,6 +108,11 @@ class _CreateCampaignState extends State<CreateCampaign> {
     if (uid == null) return;
     
     try {
+      _data.title = _data.title.trim();
+      _data.description = _data.description.trim();
+      _data.location = _data.location.trim();
+      _data.instructions = _data.instructions.trim();
+
       await DatabaseService(uid: uid).updateCampaignData(_data);
 
       navigator.pop();

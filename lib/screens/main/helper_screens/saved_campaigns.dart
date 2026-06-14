@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
@@ -25,9 +24,7 @@ class SavedCampaignsScreen extends StatelessWidget {
       uid = userObj.uid;
     }
     
-    final bool isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
-    
-    if (uid == null && !isGuest) return Container();
+    if (uid == null) return Container();
 
     return Scaffold(
       backgroundColor: backgroundGrey,
@@ -46,7 +43,7 @@ class SavedCampaignsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: isGuest ? _buildGuestState(context) : StreamBuilder<dynamic>(
+      body: StreamBuilder<dynamic>(
         stream: isNgo ? DatabaseService(uid: uid).ngoData : DatabaseService(uid: uid).volunteerUserData,
         builder: (context, userSnapshot) {
           
@@ -119,23 +116,5 @@ class SavedCampaignsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildGuestState(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(left: 30.0, right: 30.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lock_outline, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 20),
-            const Text(
-              'Тази функция е достъпна само за регистрирани потребители.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 }

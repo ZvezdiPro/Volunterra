@@ -20,6 +20,7 @@ class NGO {
   final List<String> bookmarkedCampaignsIds;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final Map<String, bool> notificationSettings;
 
   NGO({
     required this.id,
@@ -41,6 +42,7 @@ class NGO {
     this.bookmarkedCampaignsIds = const [],
     required this.createdAt,
     required this.updatedAt,
+    this.notificationSettings = const {},
   });
 
   factory NGO.fromFirestore(DocumentSnapshot doc) {
@@ -65,6 +67,7 @@ class NGO {
       bookmarkedCampaignsIds: List<String>.from(data['bookmarkedCampaignsIds'] ?? []),
       createdAt: (data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now()),
       updatedAt: (data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : DateTime.now()),
+      notificationSettings: Map<String, bool>.from(data['notificationSettings'] ?? {}),
     );
   }
 }

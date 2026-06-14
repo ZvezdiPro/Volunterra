@@ -23,36 +23,85 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late List<String> _interests;
   bool _isInitialized = false;
 
+  late String _initialFirstName;
+  late String _initialLastName;
+  late String _initialBio;
+  late List<String> _initialInterests;
+
   // Image picker state
   final ImagePicker _picker = ImagePicker();
   bool _isUploadingImage = false;
   String? _newAvatarUrl;
 
+  void _onFieldChanged() {
+    setState(() {});
+  }
+
+  void _initializeInitialValues(VolunteerUser user) {
+    _initialFirstName = user.firstName;
+    _initialLastName = user.lastName;
+    _initialBio = user.bio ?? '';
+    _initialInterests = List<String>.from(user.interests);
+  }
+
   @override
   void initState() {
     super.initState();
-    _firstNameController = TextEditingController(text: widget.volunteer.firstName);
-    _lastNameController = TextEditingController(text: widget.volunteer.lastName);
-    _bioController = TextEditingController(text: widget.volunteer.bio);
-    _interests = List<String>.from(widget.volunteer.interests);
+    _initializeInitialValues(widget.volunteer);
+
+    _firstNameController = TextEditingController(text: _initialFirstName);
+    _lastNameController = TextEditingController(text: _initialLastName);
+    _bioController = TextEditingController(text: _initialBio);
+    _interests = List<String>.from(_initialInterests);
+
+    _firstNameController.addListener(_onFieldChanged);
+    _lastNameController.addListener(_onFieldChanged);
+    _bioController.addListener(_onFieldChanged);
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.removeListener(_onFieldChanged);
+    _lastNameController.removeListener(_onFieldChanged);
+    _bioController.removeListener(_onFieldChanged);
+    
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _bioController.dispose();
+    super.dispose();
   }
 
   void _initializeData(VolunteerUser user) {
     if (!_isInitialized) {
-      _firstNameController = TextEditingController(text: user.firstName);
-      _lastNameController = TextEditingController(text: user.lastName);
-      _bioController = TextEditingController(text: user.bio);
-      _interests = List<String>.from(user.interests);
+      _initializeInitialValues(user);
+      _firstNameController.text = _initialFirstName;
+      _lastNameController.text = _initialLastName;
+      _bioController.text = _initialBio;
+      _interests = List<String>.from(_initialInterests);
       _isInitialized = true;
     }
+  }
+
+  bool get _hasChanges {
+    if (_firstNameController.text.trim() != _initialFirstName.trim()) return true;
+    if (_lastNameController.text.trim() != _initialLastName.trim()) return true;
+    if (_bioController.text.trim() != _initialBio.trim()) return true;
+    if (_newAvatarUrl != null) return true;
+    
+    if (_interests.length != _initialInterests.length) return true;
+    for (String interest in _interests) {
+      if (!_initialInterests.contains(interest)) return true;
+    }
+    
+    return false;
   }
 
   void _saveChanges() async {
     if (_formKey.currentState!.validate()) {
       await DatabaseService(uid: widget.volunteer.uid).editUserProfileData(
-        firstName: _firstNameController.text,
-        lastName: _lastNameController.text,
-        bio: _bioController.text,
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        bio: _bioController.text.trim(),
         interests: _interests,
       );
 
@@ -332,18 +381,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   height: 55,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: greenPrimary,
+                      backgroundColor: _hasChanges ? greenPrimary : Colors.grey,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    onPressed: _isUploadingImage ? () {
+                    onPressed: !_hasChanges ? null : (_isUploadingImage ? () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Моля, изчакайте качването на снимката да приключи!', style: TextStyle(fontWeight: FontWeight.bold)),
                           backgroundColor: Colors.orange,
                         ),
                       );
-                    } : _saveChanges,
+                    } : _saveChanges),
                     child: AnimatedOpacity(
                       opacity: _isUploadingImage ? 0.5 : 1.0,
                       duration: const Duration(milliseconds: 300),

@@ -9,6 +9,7 @@ import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
 import 'package:volunteer_app/screens/main/helper_screens/ngo_admin_panel.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:volunteer_app/shared/constants.dart';
 
 class PublicNgoScreen extends StatefulWidget {
   final NGO ngo;
@@ -150,16 +151,7 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
                         final volunteerUser = userObj as VolunteerUser;
 
                         if (volunteerUser.email.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Тази функция е достъпна само за регистрирани потребители.',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              backgroundColor: Colors.orange,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          ScaffoldMessenger.of(context).showSnackBar(guestSnackbar);
                           return;
                         }
 
@@ -293,7 +285,7 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardGrey,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, 5)),
@@ -312,7 +304,7 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardGrey,
             borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, 5)),
@@ -477,7 +469,7 @@ class _PublicNgoScreenState extends State<PublicNgoScreen> {
             final campaign = campaigns[index];
             return Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardGrey,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 5, offset: const Offset(0, 2)),

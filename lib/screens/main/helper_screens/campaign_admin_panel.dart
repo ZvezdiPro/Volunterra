@@ -1501,7 +1501,7 @@ class _CampaignAdminPanelState extends State<CampaignAdminPanel> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  "Премахва завинаги тази кампания и всички свързани с нея данни. Това действие не може да бъде отменено.",
+                  "Прекратява тази кампания и всички дейности по нея. Това действие не може да бъде отменено.",
                   style: TextStyle(fontSize: 12, color: Colors.red.shade700),
                 ),
                 const SizedBox(height: 15),

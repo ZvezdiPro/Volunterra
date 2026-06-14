@@ -84,6 +84,17 @@ class _NgoRegisterState extends State<NgoRegister> {
       loading = true;
     });
     
+    _data.email = _data.email.trim();
+    _data.password = _data.password.trim();
+    _data.name = _data.name.trim();
+    _data.registrationNumber = _data.registrationNumber.trim();
+    _data.description = _data.description.trim();
+    _data.phone = _data.phone.trim();
+    _data.website = _data.website.trim();
+    _data.address = _data.address.trim();
+    _data.facebookLink = _data.facebookLink.trim();
+    _data.instagramLink = _data.instagramLink.trim();
+
     dynamic result = await _auth.registerNgoWithEmailAndPassword(_data.email, _data.password, _data);
 
     if (result == null) {

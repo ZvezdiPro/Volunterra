@@ -87,6 +87,12 @@ class _RegisterState extends State<Register> {
       loading = true;
     });
     
+    _data.email = _data.email.trim();
+    _data.password = _data.password.trim();
+    _data.firstName = _data.firstName.trim();
+    _data.lastName = _data.lastName.trim();
+    if (_data.bio != null) _data.bio = _data.bio!.trim();
+
     dynamic result = await _auth.registerWithEmailAndPassword(_data.email, _data.password, _data);
 
     if (result == null) {

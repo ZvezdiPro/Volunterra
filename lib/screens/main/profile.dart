@@ -11,6 +11,8 @@ import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
 import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/screens/main/helper_screens/public_ngo_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/settings.dart';
+import 'package:volunteer_app/shared/constants.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -173,7 +175,7 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
                       return Container(
                         padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardGrey,
                           borderRadius: BorderRadius.circular(15.0),
                           boxShadow: [
                             BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: Offset(0, 5)),
@@ -224,6 +226,12 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
                 Colors.green.shade100,
                 greenPrimary,
                 () {
+                  final bool isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
+                  if (isGuest) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(guestSnackbar);
+                    return;
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const SavedCampaignsScreen()),
@@ -240,14 +248,15 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
                 Colors.blue.shade100,
                 Colors.blue,
                 () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Настройките ще бъдат налични скоро!",
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      backgroundColor: blueSecondary,
-                    ),
+                  final bool isGuest = FirebaseAuth.instance.currentUser?.isAnonymous ?? false;
+                  if (isGuest) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(guestSnackbar);
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsPage()),
                   );
                 },
               ),
@@ -295,7 +304,7 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
                         return Container(
                           padding: EdgeInsets.all(20),
                           width: double.infinity,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: cardGrey, borderRadius: BorderRadius.circular(12)),
                           child: Text('Няма скорошна активност.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
                         );
                       }
@@ -305,7 +314,7 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
                       // Build the list of recent campaigns
                       return Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardGrey,
                           borderRadius: BorderRadius.circular(12.0),
                           boxShadow: [
                             BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: Offset(0, 2)),
@@ -379,7 +388,7 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
                       SizedBox(height: 10.0),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: cardGrey,
                           borderRadius: BorderRadius.circular(12.0),
                           boxShadow: [
                             BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: Offset(0, 2)),
@@ -477,7 +486,7 @@ class _ProfilePageState extends State<ProfilePage> with AutomaticKeepAliveClient
   Widget _buildMenuTile(IconData icon, String title, Color bgColor, Color iconColor, VoidCallback onTap) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardGrey,
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
             BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: Offset(0, 2)),

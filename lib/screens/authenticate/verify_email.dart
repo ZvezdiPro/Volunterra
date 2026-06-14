@@ -59,11 +59,19 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 15),
-              Text(
-                'Изпратихме линк за потвърждение на имейл адрес:\n${FirebaseAuth.instance.currentUser?.email ?? ""}\n\nМоля, кликнете върху него, за да активирате акаунта си.\n\nАко не виждате имейла, моля проверете папката си за спам.',
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black54,
+              Text.rich(
+                TextSpan(
+                  text: 'Изпратихме линк за потвърждение на имейл адрес:\n${FirebaseAuth.instance.currentUser?.email ?? ""}\n\nМоля, кликнете върху него, за да активирате акаунта си.\n\n',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                  children: const [
+                    TextSpan(
+                      text: 'Ако не виждате имейла, моля проверете папката си за спам.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
                 textAlign: TextAlign.center,
               ),

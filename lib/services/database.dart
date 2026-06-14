@@ -3,6 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:volunteer_app/models/campaign.dart';
+import 'package:volunteer_app/models/campaign_task.dart';
 import 'package:volunteer_app/models/registration_data.dart';
 import 'package:volunteer_app/models/volunteer.dart';
 import 'package:volunteer_app/models/campaign_data.dart';
@@ -13,9 +14,12 @@ class DatabaseService {
   final String? uid;
   DatabaseService({this.uid});
 
-  final CollectionReference volunteerCollection = FirebaseFirestore.instance.collection('volunteers');
-  final CollectionReference campaignCollection = FirebaseFirestore.instance.collection('campaigns');
-  final CollectionReference ngoCollection = FirebaseFirestore.instance.collection('ngos');
+  final CollectionReference volunteerCollection = FirebaseFirestore.instance
+      .collection('volunteers');
+  final CollectionReference campaignCollection = FirebaseFirestore.instance
+      .collection('campaigns');
+  final CollectionReference ngoCollection = FirebaseFirestore.instance
+      .collection('ngos');
 
   Future<void> updateUserData(
     RegistrationData data, {
@@ -54,9 +58,15 @@ class DatabaseService {
     }
 
     // Optional fields
-    if (data.bio != null && data.bio!.isNotEmpty) userData['bio'] = data.bio;
-    if (data.phoneNumber != null && data.phoneNumber!.isNotEmpty) userData['phoneNumber'] = data.phoneNumber;
-    if (data.dateOfBirth != null) userData['dateOfBirth'] = data.dateOfBirth;
+    if (data.bio != null && data.bio!.isNotEmpty) {
+      userData['bio'] = data.bio;
+    }
+    if (data.phoneNumber != null && data.phoneNumber!.isNotEmpty) {
+      userData['phoneNumber'] = data.phoneNumber;
+    }
+    if (data.dateOfBirth != null) {
+      userData['dateOfBirth'] = data.dateOfBirth;
+    }
 
     // If the document does not exist, we set the createdAt and other initial fields
     if (!documentSnapshot.exists) {
@@ -65,10 +75,11 @@ class DatabaseService {
       userData['userLevel'] = 1;
       userData['interests'] = data.interests;
       if (!isOAuthLogin) {
-        userData['isEmailVerified'] = false; // Fresh email registration is unverified
+        userData['isEmailVerified'] =
+            false; // Fresh email registration is unverified
       }
       userData['isOrganizer'] = false;
-      
+
       // If the user hasn't put values to these optional fields
       // Then we set them to default values (empty string or null)
       if (!userData.containsKey('bio')) {
@@ -88,7 +99,7 @@ class DatabaseService {
   // Mark email as verified
   Future<void> markEmailAsVerified() async {
     if (uid == null) return;
-    
+
     // Check if Volunteer doc exists before updating
     final volunteerDoc = await volunteerCollection.doc(uid).get();
     if (volunteerDoc.exists) {
@@ -155,8 +166,7 @@ class DatabaseService {
   // Method to get organizer (can be VolunteerUser or NGO)
   Future<Object?> getOrganizer() async {
     if (uid == null) return null;
-    
-    // Check NGO first because ghost VolunteerUser documents exist for NGOs due to FCM token generation
+
     final ngoDoc = await ngoCollection.doc(uid).get();
     if (ngoDoc.exists) {
       return NGO.fromFirestore(ngoDoc);
@@ -166,7 +176,7 @@ class DatabaseService {
     if (volunteerDoc.exists) {
       return VolunteerUser.fromFirestore(volunteerDoc);
     }
-    
+
     return null;
   }
 
@@ -247,6 +257,67 @@ class DatabaseService {
     });
   }
 
+  // Create a new task in a campaign
+  Future<void> createCampaignTask(String campaignId, CampaignTask task) async {
+    return await campaignCollection
+        .doc(campaignId)
+        .collection('tasks')
+        .doc(task.id)
+        .set(task.toMap());
+  }
+
+  // Delete a task in a campaign
+  Future<void> deleteCampaignTask(String campaignId, String taskId) async {
+    return await campaignCollection
+        .doc(campaignId)
+        .collection('tasks')
+        .doc(taskId)
+        .delete();
+  }
+
+  // Update task completion status
+  Future<void> updateCampaignTaskCompletion(
+    String campaignId,
+    String taskId,
+    bool isCompleted,
+  ) async {
+    return await campaignCollection
+        .doc(campaignId)
+        .collection('tasks')
+        .doc(taskId)
+        .update({'isCompleted': isCompleted});
+  }
+
+  // Stream tasks assigned to the current user for a specific campaign
+  Stream<List<CampaignTask>> getMyCampaignTasks(String campaignId) {
+    if (uid == null) return Stream.value([]);
+    return campaignCollection
+        .doc(campaignId)
+        .collection('tasks')
+        .where('assigneeIds', arrayContains: uid)
+        .snapshots()
+        .map((snapshot) {
+          final tasks = _taskListFromSnapshot(snapshot);
+          tasks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return tasks;
+        });
+  }
+
+  // Stream ALL tasks for a specific campaign (for organizers)
+  Stream<List<CampaignTask>> getAllCampaignTasks(String campaignId) {
+    return campaignCollection
+        .doc(campaignId)
+        .collection('tasks')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(_taskListFromSnapshot);
+  }
+
+  // Helper method to convert QuerySnapshot to List<CampaignTask>
+  List<CampaignTask> _taskListFromSnapshot(QuerySnapshot snapshot) {
+    return snapshot.docs.map((doc) => CampaignTask.fromFirestore(doc)).toList();
+  }
+
   // Method to check if a volunteer user exists
   Future<bool> checkUserExists() async {
     final docSnapshot = await volunteerCollection.doc(uid).get();
@@ -269,6 +340,14 @@ class DatabaseService {
     });
   }
 
+  // Update email public visibility
+  Future<void> updateEmailVisibility(bool isPublic) async {
+    return await volunteerCollection.doc(uid).update({
+      'showEmailPublicly': isPublic,
+      'updatedAt': DateTime.now(),
+    });
+  }
+
   // Update user avatar URL
   Future<void> updateUserAvatar(String avatarUrl) async {
     return await volunteerCollection.doc(uid).update({'avatarUrl': avatarUrl});
@@ -277,14 +356,14 @@ class DatabaseService {
   // Update FCM token
   Future<void> updateFCMToken(String token) async {
     if (uid == null) return;
-    
+
     final ngoDoc = await ngoCollection.doc(uid).get();
     if (ngoDoc.exists) {
       return await ngoCollection.doc(uid).set({
         'fcmToken': token,
       }, SetOptions(merge: true));
     }
-    
+
     return await volunteerCollection.doc(uid).set({
       'fcmToken': token,
     }, SetOptions(merge: true));
@@ -293,7 +372,7 @@ class DatabaseService {
   // Update user location
   Future<void> updateUserLocation(double latitude, double longitude) async {
     if (uid == null) return;
-    
+
     final ngoDoc = await ngoCollection.doc(uid).get();
     if (ngoDoc.exists) {
       return await ngoCollection.doc(uid).update({
@@ -301,7 +380,7 @@ class DatabaseService {
         'lastKnownLongitude': longitude,
       });
     }
-    
+
     final volunteerDoc = await volunteerCollection.doc(uid).get();
     if (volunteerDoc.exists) {
       return await volunteerCollection.doc(uid).update({
@@ -309,6 +388,19 @@ class DatabaseService {
         'lastKnownLongitude': longitude,
       });
     }
+  }
+
+  // Update notification settings
+  Future<void> updateNotificationSettings(
+    Map<String, bool> settings,
+    bool isNgo,
+  ) async {
+    if (uid == null) return;
+
+    final collection = isNgo ? ngoCollection : volunteerCollection;
+    return await collection.doc(uid).set({
+      'notificationSettings': settings,
+    }, SetOptions(merge: true));
   }
 
   // Upload image to Firebase Storage and return the download URL
@@ -342,7 +434,11 @@ class DatabaseService {
   }
 
   // Bookmark or unbookmark a campaign
-  Future<void> toggleCampaignBookmark(String campaignId, bool currentStatus, {bool isNgo = false}) async {
+  Future<void> toggleCampaignBookmark(
+    String campaignId,
+    bool currentStatus, {
+    bool isNgo = false,
+  }) async {
     if (uid == null) return;
     final collection = isNgo ? ngoCollection : volunteerCollection;
     return await collection.doc(uid).update({
@@ -353,9 +449,13 @@ class DatabaseService {
   }
 
   // Toggle coorganizer status
-  Future<void> toggleCoorganizer(String campaignId, String volunteerUid, bool isAdd) async {
+  Future<void> toggleCoorganizer(
+    String campaignId,
+    String volunteerUid,
+    bool isAdd,
+  ) async {
     return await campaignCollection.doc(campaignId).update({
-      'coorganizersIds': isAdd 
+      'coorganizersIds': isAdd
           ? FieldValue.arrayUnion([volunteerUid])
           : FieldValue.arrayRemove([volunteerUid]),
     });
@@ -398,8 +498,10 @@ class DatabaseService {
       if (!snapshot.exists) return;
 
       final data = snapshot.data() as Map<String, dynamic>;
-      List<dynamic> volunteers = List.from(data['registeredVolunteersUids'] ?? []);
-      
+      List<dynamic> volunteers = List.from(
+        data['registeredVolunteersUids'] ?? [],
+      );
+
       // Remove new owner from volunteers, add old owner to volunteers
       volunteers.remove(newOwnerId);
       if (!volunteers.contains(oldOwnerId)) {
@@ -460,7 +562,10 @@ class DatabaseService {
   }
 
   // Toggle delist status
-  Future<void> toggleCampaignDelistStatus(String campaignId, bool currentStatus) async {
+  Future<void> toggleCampaignDelistStatus(
+    String campaignId,
+    bool currentStatus,
+  ) async {
     return await campaignCollection.doc(campaignId).update({
       'isDelisted': !currentStatus,
       'updatedAt': DateTime.now(),
@@ -477,16 +582,24 @@ class DatabaseService {
   // Create NGO document
   Future<void> createNgo(NgoRegistrationData data) async {
     if (uid == null) return;
-    
+
     // Upload images if any
     String? logoUrl;
     if (data.logoImage != null) {
-      logoUrl = await uploadImage('ngo_branding/$uid', data.logoImage!, 'logo_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      logoUrl = await uploadImage(
+        'ngo_branding/$uid',
+        data.logoImage!,
+        'logo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
     }
-    
+
     String? bannerUrl;
     if (data.bannerImage != null) {
-      bannerUrl = await uploadImage('ngo_branding/$uid', data.bannerImage!, 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      bannerUrl = await uploadImage(
+        'ngo_branding/$uid',
+        data.bannerImage!,
+        'cover_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
     }
 
     return await ngoCollection.doc(uid).set({
@@ -568,7 +681,7 @@ class DatabaseService {
   Future<void> addNgoMember(String volunteerUid) async {
     if (uid == null) return;
     return await ngoCollection.doc(uid).update({
-      'members': FieldValue.arrayUnion([volunteerUid])
+      'members': FieldValue.arrayUnion([volunteerUid]),
     });
   }
 
@@ -576,7 +689,7 @@ class DatabaseService {
   Future<void> removeNgoMember(String volunteerUid) async {
     if (uid == null) return;
     return await ngoCollection.doc(uid).update({
-      'members': FieldValue.arrayRemove([volunteerUid])
+      'members': FieldValue.arrayRemove([volunteerUid]),
     });
   }
 
@@ -584,7 +697,7 @@ class DatabaseService {
   Future<void> addNgoAdmin(String volunteerUid) async {
     if (uid == null) return;
     return await ngoCollection.doc(uid).update({
-      'admins': FieldValue.arrayUnion([volunteerUid])
+      'admins': FieldValue.arrayUnion([volunteerUid]),
     });
   }
 
@@ -592,22 +705,23 @@ class DatabaseService {
   Future<void> removeNgoAdmin(String volunteerUid) async {
     if (uid == null) return;
     return await ngoCollection.doc(uid).update({
-      'admins': FieldValue.arrayRemove([volunteerUid])
+      'admins': FieldValue.arrayRemove([volunteerUid]),
     });
   }
 
   // Search volunteers by name or email
   Future<List<VolunteerUser>> searchVolunteers(String query) async {
     if (query.isEmpty) return [];
-    
+
     final querySnapshot = await volunteerCollection.get();
     final lowerQuery = query.toLowerCase();
-    
+
     return querySnapshot.docs
         .map((doc) => VolunteerUser.fromFirestore(doc))
         .where((user) {
           final fullName = '${user.firstName} ${user.lastName}'.toLowerCase();
-          return fullName.contains(lowerQuery) || user.email.toLowerCase().contains(lowerQuery);
+          return fullName.contains(lowerQuery) ||
+              user.email.toLowerCase().contains(lowerQuery);
         })
         .toList();
   }
@@ -615,12 +729,38 @@ class DatabaseService {
   // Toggle following an NGO
   Future<void> toggleFollowNgo(String targetNgoId, bool isFollowing) async {
     if (uid == null) return;
-    
+
     // Update target NGO's followers list
     await ngoCollection.doc(targetNgoId).update({
-      'followers': isFollowing 
-          ? FieldValue.arrayRemove([uid]) 
-          : FieldValue.arrayUnion([uid])
+      'followers': isFollowing
+          ? FieldValue.arrayRemove([uid])
+          : FieldValue.arrayUnion([uid]),
     });
+  }
+
+  // Delete user profile data from Firestore
+  Future<void> deleteUserData() async {
+    if (uid == null) return;
+
+    // Find and delete active un-started campaigns organized by this user
+    final QuerySnapshot campaignsSnapshot = await campaignCollection
+        .where('organizerId', isEqualTo: uid)
+        .where('status', isEqualTo: 'active')
+        .get();
+
+    final now = DateTime.now();
+    for (var doc in campaignsSnapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data != null && data['startDate'] != null) {
+        final startTimestamp = data['startDate'] as Timestamp;
+        if (startTimestamp.toDate().isAfter(now)) {
+          await doc.reference.delete();
+        }
+      }
+    }
+
+    // Delete user profile documents
+    await volunteerCollection.doc(uid).delete();
+    await ngoCollection.doc(uid).delete();
   }
 }

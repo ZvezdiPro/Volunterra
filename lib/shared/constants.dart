@@ -58,4 +58,18 @@ const textFormFieldHeading = TextStyle(
   color: Colors.black54,
   fontSize: 16,
   fontWeight: FontWeight.bold
-  );
+);
+
+const guestSnackbar = SnackBar(
+  backgroundColor: Colors.orange,
+  content: Center(child: Text('Тази функция е достъпна само за регистрирани потребители!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+  duration: Duration(seconds: 3),
+  behavior: SnackBarBehavior.floating,
+);
+
+const volunteerOnlySnackbar = SnackBar(
+  backgroundColor: Colors.orange,
+  content: Center(child: Text('Тази функция е достъпна само за доброволци!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+  duration: Duration(seconds: 3),
+  behavior: SnackBarBehavior.floating,
+);

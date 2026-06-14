@@ -17,7 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart'; 
+import 'package:record/record.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:volunteer_app/models/campaign.dart';
 import 'package:volunteer_app/models/ngo.dart';
@@ -26,6 +26,8 @@ import 'package:volunteer_app/screens/main/helper_screens/campaign_info_screen.d
 import 'package:volunteer_app/services/database.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_participants_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/my_tasks_screen.dart';
+import 'package:volunteer_app/screens/main/helper_screens/all_tasks_screen.dart';
 import 'package:volunteer_app/widgets/chat_bubbles.dart';
 
 // Main screen for campaign chat widget
@@ -60,7 +62,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   void initState() {
     super.initState();
     _currentCampaign = widget.campaign;
-    _campaignStream = FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).snapshots();
+    _campaignStream = FirebaseFirestore.instance
+        .collection('campaigns')
+        .doc(widget.campaign.id)
+        .snapshots();
     _campaignSubscription = _campaignStream.listen((snapshot) {
       if (snapshot.exists && mounted) {
         setState(() {
@@ -83,10 +88,16 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     super.dispose();
   }
 
-  String get _currentUid => widget.currentUser is NGO ? widget.currentUser.id : widget.currentUser.uid;
-  String get _currentName => widget.currentUser is NGO ? widget.currentUser.name : widget.currentUser.firstName;
+  String get _currentUid => widget.currentUser is NGO
+      ? widget.currentUser.id
+      : widget.currentUser.uid;
+  String get _currentName => widget.currentUser is NGO
+      ? widget.currentUser.name
+      : widget.currentUser.firstName;
 
-  bool get _isOrganizer => _currentCampaign.organizerId == _currentUid || _currentCampaign.coorganizersIds.contains(_currentUid);
+  bool get _isOrganizer =>
+      _currentCampaign.organizerId == _currentUid ||
+      _currentCampaign.coorganizersIds.contains(_currentUid);
 
   // Helper method to format bytes to human-readable string
   String _formatBytes(int bytes, int decimals) {
@@ -110,16 +121,19 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       }
 
       final tempDir = await getTemporaryDirectory();
-      
+
       // Determine file extension
       String ext = "";
-      if (type == 'image') ext = "jpg";
-      else if (type == 'video') ext = "mp4";
+      if (type == 'image')
+        ext = "jpg";
+      else if (type == 'video')
+        ext = "mp4";
       else {
         throw Exception("Аудио файловете не се поддържат от Галерията.");
       }
-      
-      final String fileName = "volunteer_${DateTime.now().millisecondsSinceEpoch}.$ext";
+
+      final String fileName =
+          "volunteer_${DateTime.now().millisecondsSinceEpoch}.$ext";
       final String filePath = '${tempDir.path}/$fileName';
 
       await Dio().download(fileUrl, filePath);
@@ -131,18 +145,20 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       }
 
       try {
-        File(filePath).delete(); 
+        File(filePath).delete();
       } catch (_) {}
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Запазено в галерията! (Албум Volunterra)", style: TextStyle(fontWeight: FontWeight.bold)),
+            content: Text(
+              "Запазено в галерията! (Албум Volunterra)",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             backgroundColor: greenPrimary,
           ),
         );
       }
-
     } catch (e) {
       debugPrint("Gallery Error: $e");
       if (mounted) {
@@ -150,7 +166,9 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
         if (e.toString().contains("ACCESS_DENIED")) {
           errorMsg = "Няма права за достъп до Галерията.";
         }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMsg)));
       }
     } finally {
       if (mounted) setState(() => _isSharing = false);
@@ -158,14 +176,19 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   }
 
   // Save generic file (audio, document, etc.)
-  Future<void> _saveGenericFile(String fileUrl, String? fileName, String type) async {
+  Future<void> _saveGenericFile(
+    String fileUrl,
+    String? fileName,
+    String type,
+  ) async {
     try {
       setState(() => _isSharing = true);
 
       final tempDir = await getTemporaryDirectory();
       String ext = type == 'audio' ? 'm4a' : 'bin';
-      String finalName = fileName ?? "audio_${DateTime.now().millisecondsSinceEpoch}.$ext";
-      
+      String finalName =
+          fileName ?? "audio_${DateTime.now().millisecondsSinceEpoch}.$ext";
+
       if (!finalName.contains('.')) finalName += ".$ext";
 
       final String savePath = '${tempDir.path}/$finalName';
@@ -176,16 +199,20 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
       if (mounted) {
         if (filePath != null) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Файлът е запазен!"), 
-              backgroundColor: greenPrimary
-          ));
-        } 
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Файлът е запазен!"),
+              backgroundColor: greenPrimary,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint("File Save Error: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Грешка: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Грешка: $e")));
       }
     } finally {
       if (mounted) setState(() => _isSharing = false);
@@ -196,15 +223,27 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   Future<void> _pinMessage(String messageId, String text, String type) async {
     if (!_isOrganizer) return;
     try {
-      await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
-        'pinnedMessage': {
-          'id': messageId,
-          'text': text,
-          'type': type,
-          'timestamp': DateTime.now().toIso8601String(),
-        }
-      });
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Съобщението е закачено!", style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: greenPrimary));
+      await FirebaseFirestore.instance
+          .collection('campaigns')
+          .doc(widget.campaign.id)
+          .update({
+            'pinnedMessage': {
+              'id': messageId,
+              'text': text,
+              'type': type,
+              'timestamp': DateTime.now().toIso8601String(),
+            },
+          });
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Съобщението е закачено!",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: greenPrimary,
+          ),
+        );
     } catch (e) {
       debugPrint("Pin Error: $e");
     }
@@ -213,9 +252,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   Future<void> _unpinMessage() async {
     if (!_isOrganizer) return;
     try {
-      await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
-        'pinnedMessage': FieldValue.delete(),
-      });
+      await FirebaseFirestore.instance
+          .collection('campaigns')
+          .doc(widget.campaign.id)
+          .update({'pinnedMessage': FieldValue.delete()});
     } catch (e) {
       debugPrint("Unpin Error: $e");
     }
@@ -242,10 +282,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
           .doc(widget.campaign.id)
           .collection('messages')
           .doc(originalMessageId)
-          .update({
-        'text': newText,
-        'isEdited': true,
-      });
+          .update({'text': newText, 'isEdited': true});
     } catch (e) {
       debugPrint("Error updating message: $e");
     }
@@ -255,12 +292,20 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     await _uploadAndSend(File(path), 'chat_audio', 'audio', 'm4a');
   }
 
-  Future<void> _uploadAndSend(File file, String folder, String type, String ext, {double? aspectRatio}) async {
+  Future<void> _uploadAndSend(
+    File file,
+    String folder,
+    String type,
+    String ext, {
+    double? aspectRatio,
+  }) async {
     setState(() => _isUploading = true);
     try {
       String fileName = "${DateTime.now().millisecondsSinceEpoch}.$ext";
-      Reference storageRef = FirebaseStorage.instance.ref().child('$folder/${widget.campaign.id}/$fileName');
-      
+      Reference storageRef = FirebaseStorage.instance.ref().child(
+        '$folder/${widget.campaign.id}/$fileName',
+      );
+
       await storageRef.putFile(file);
       String downloadUrl = await storageRef.getDownloadURL();
 
@@ -271,9 +316,12 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
         fileName: type == 'file' ? file.path.split('/').last : null,
       );
     } catch (e) {
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Грешка при качване: $e")));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Грешка при качване: $e")));
     } finally {
-      if(mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -300,22 +348,22 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
           .doc(widget.campaign.id)
           .collection('messages')
           .add({
-        'text': text ?? '',
-        'fileUrl': fileUrl ?? '',
-        'type': type,
-        'fileName': fileName ?? '',
-        'fileSize': fileSize ?? '',
-        'contactName': contactName ?? '',
-        'contactPhone': contactPhone ?? '',
-        'aspectRatio': aspectRatio,
-        'senderId': _currentUid,
-        'senderName': _currentName,
-        'timestamp': FieldValue.serverTimestamp(),
-        'reactions': {},
-        'replyToName': replyData?['name'],
-        'replyToText': replyData?['text'],
-        'replyToId': replyData?['id'],
-      });
+            'text': text ?? '',
+            'fileUrl': fileUrl ?? '',
+            'type': type,
+            'fileName': fileName ?? '',
+            'fileSize': fileSize ?? '',
+            'contactName': contactName ?? '',
+            'contactPhone': contactPhone ?? '',
+            'aspectRatio': aspectRatio,
+            'senderId': _currentUid,
+            'senderName': _currentName,
+            'timestamp': FieldValue.serverTimestamp(),
+            'reactions': {},
+            'replyToName': replyData?['name'],
+            'replyToText': replyData?['text'],
+            'replyToId': replyData?['id'],
+          });
     } catch (e) {
       debugPrint("Error sending message: $e");
     }
@@ -325,7 +373,13 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          content: Text(
+            message,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           backgroundColor: Colors.red.shade400,
         ),
       );
@@ -341,69 +395,108 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
     try {
       if (type == 'gallery') {
-         final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-         if (image != null) {
-           File file = File(image.path);
-           if (file.lengthSync() > maxImageSize) {
-             _showSizeExceededError("Изображението не трябва да надвишава 10 MB!");
-             return;
-           }
-           double? imageAspectRatio;
-           try {
-             final data = await file.readAsBytes();
-             final codec = await ui.instantiateImageCodec(data);
-             final frameInfo = await codec.getNextFrame();
-             imageAspectRatio = frameInfo.image.width / frameInfo.image.height;
-           } catch (e) {
-             debugPrint("Image decode error: $e");
-           }
-           _uploadAndSend(file, 'chat_images', 'image', 'jpg', aspectRatio: imageAspectRatio);
-         }
+        final XFile? image = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 70,
+        );
+        if (image != null) {
+          File file = File(image.path);
+          if (file.lengthSync() > maxImageSize) {
+            _showSizeExceededError(
+              "Изображението не трябва да надвишава 10 MB!",
+            );
+            return;
+          }
+          double? imageAspectRatio;
+          try {
+            final data = await file.readAsBytes();
+            final codec = await ui.instantiateImageCodec(data);
+            final frameInfo = await codec.getNextFrame();
+            imageAspectRatio = frameInfo.image.width / frameInfo.image.height;
+          } catch (e) {
+            debugPrint("Image decode error: $e");
+          }
+          _uploadAndSend(
+            file,
+            'chat_images',
+            'image',
+            'jpg',
+            aspectRatio: imageAspectRatio,
+          );
+        }
       } else if (type == 'video') {
-         final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
-         if (video != null) {
-           File file = File(video.path);
-           if (file.lengthSync() > maxVideoFileSize) {
-             _showSizeExceededError("Видеоклипът не трябва да надвишава 50 MB!");
-             return;
-           }
-           _uploadAndSend(file, 'chat_videos', 'video', 'mp4');
-         }
+        final XFile? video = await picker.pickVideo(
+          source: ImageSource.gallery,
+        );
+        if (video != null) {
+          File file = File(video.path);
+          if (file.lengthSync() > maxVideoFileSize) {
+            _showSizeExceededError("Видеоклипът не трябва да надвишава 50 MB!");
+            return;
+          }
+          _uploadAndSend(file, 'chat_videos', 'video', 'mp4');
+        }
       } else if (type == 'file') {
-         FilePickerResult? result = await FilePicker.platform.pickFiles();
-         if (result != null && result.files.single.path != null) {
-            File file = File(result.files.single.path!);
-            
-            if (result.files.single.size > maxVideoFileSize) {
-              _showSizeExceededError("Файлът не трябва да надвишава 50 MB!");
-              return;
-            }
+        FilePickerResult? result = await FilePicker.platform.pickFiles();
+        if (result != null && result.files.single.path != null) {
+          File file = File(result.files.single.path!);
 
-            String size = _formatBytes(result.files.single.size, 1);
-            
-            setState(() => _isUploading = true);
-            Reference ref = FirebaseStorage.instance.ref().child('chat_files/${widget.campaign.id}/${result.files.single.name}');
-            await ref.putFile(file);
-            String url = await ref.getDownloadURL();
-            _sendMessage(fileUrl: url, type: 'file', fileName: result.files.single.name, fileSize: size);
-            setState(() => _isUploading = false);
-         }
+          if (result.files.single.size > maxVideoFileSize) {
+            _showSizeExceededError("Файлът не трябва да надвишава 50 MB!");
+            return;
+          }
+
+          String size = _formatBytes(result.files.single.size, 1);
+
+          setState(() => _isUploading = true);
+          Reference ref = FirebaseStorage.instance.ref().child(
+            'chat_files/${widget.campaign.id}/${result.files.single.name}',
+          );
+          await ref.putFile(file);
+          String url = await ref.getDownloadURL();
+          _sendMessage(
+            fileUrl: url,
+            type: 'file',
+            fileName: result.files.single.name,
+            fileSize: size,
+          );
+          setState(() => _isUploading = false);
+        }
       } else if (type == 'contact') {
-        if (await FlutterContacts.requestPermission(readonly: true)) {
-          final Contact? contact = await FlutterContacts.openExternalPick();
-          if (contact != null && contact.phones.isNotEmpty) {
-            _sendMessage(type: 'contact', contactName: contact.displayName, contactPhone: contact.phones.first.number);
+        if ((await FlutterContacts.permissions.request(
+              PermissionType.read,
+            )).name ==
+            'granted') {
+          final String? contactId = await FlutterContacts.native.showPicker();
+          if (contactId != null) {
+            final Contact? contact = await FlutterContacts.get(
+              contactId,
+              properties: {ContactProperty.phone},
+            );
+            if (contact != null && contact.phones.isNotEmpty) {
+              _sendMessage(
+                type: 'contact',
+                contactName: contact.displayName,
+                contactPhone: contact.phones.first.number,
+              );
+            }
           }
         }
       }
     } catch (e) {
-      if(mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
   // Share message content to other apps
-  Future<void> _shareMessageContent(String? text, String? fileUrl, String type) async {
-    if ((fileUrl == null || fileUrl.isEmpty) && text != null && text.isNotEmpty) {
+  Future<void> _shareMessageContent(
+    String? text,
+    String? fileUrl,
+    String type,
+  ) async {
+    if ((fileUrl == null || fileUrl.isEmpty) &&
+        text != null &&
+        text.isNotEmpty) {
       await SharePlus.instance.share(ShareParams(text: text));
       return;
     }
@@ -416,33 +509,53 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
         if (response.statusCode != 200) throw Exception("Грешка при сваляне");
 
         final Directory tempDir = await getTemporaryDirectory();
-        
+
         String extension = 'bin';
         String mimeType = '*/*';
 
-        if (type == 'image') { extension = 'jpg'; mimeType = 'image/jpeg'; }
-        else if (type == 'video') { extension = 'mp4'; mimeType = 'video/mp4'; }
-        else if (type == 'audio') { extension = 'm4a'; mimeType = 'audio/mp4'; }
-        else if (type == 'file') {
-          if (fileUrl.toLowerCase().contains('.pdf')) { extension = 'pdf'; mimeType = 'application/pdf'; }
-          else { extension = 'file'; }
+        if (type == 'image') {
+          extension = 'jpg';
+          mimeType = 'image/jpeg';
+        } else if (type == 'video') {
+          extension = 'mp4';
+          mimeType = 'video/mp4';
+        } else if (type == 'audio') {
+          extension = 'm4a';
+          mimeType = 'audio/mp4';
+        } else if (type == 'file') {
+          if (fileUrl.toLowerCase().contains('.pdf')) {
+            extension = 'pdf';
+            mimeType = 'application/pdf';
+          } else {
+            extension = 'file';
+          }
         }
 
-        final String cleanFileName = 'share_${DateTime.now().millisecondsSinceEpoch}.$extension';
+        final String cleanFileName =
+            'share_${DateTime.now().millisecondsSinceEpoch}.$extension';
         final File file = File('${tempDir.path}/$cleanFileName');
-        
+
         await file.writeAsBytes(response.bodyBytes);
 
         if (!await file.exists()) throw Exception("File write failed");
 
         final XFile xFile = XFile(file.path, mimeType: mimeType);
-        
-        await Future.delayed(const Duration(milliseconds: 100));
-        await SharePlus.instance.share(ShareParams(files: [xFile], text: (text != null && text.isNotEmpty) ? text : null));
 
+        await Future.delayed(const Duration(milliseconds: 100));
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [xFile],
+            text: (text != null && text.isNotEmpty) ? text : null,
+          ),
+        );
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.red.shade300, content: Center(child: Text("Неуспешно споделяне на файл."))));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.red.shade300,
+              content: Center(child: Text("Неуспешно споделяне на файл.")),
+            ),
+          );
         }
       } finally {
         if (mounted) setState(() => _isSharing = false);
@@ -451,25 +564,45 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   }
 
   // Toggle reaction
-  Future<void> _toggleReaction(String docId, String emoji, Map<String, dynamic> currentReactions) async {
+  Future<void> _toggleReaction(
+    String docId,
+    String emoji,
+    Map<String, dynamic> currentReactions,
+  ) async {
     final uid = _currentUid;
-    final docRef = FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).collection('messages').doc(docId);
+    final docRef = FirebaseFirestore.instance
+        .collection('campaigns')
+        .doc(widget.campaign.id)
+        .collection('messages')
+        .doc(docId);
     if (currentReactions[uid] == emoji) {
-       await docRef.update({'reactions.$uid': FieldValue.delete()});
+      await docRef.update({'reactions.$uid': FieldValue.delete()});
     } else {
-       await docRef.update({'reactions.$uid': emoji});
+      await docRef.update({'reactions.$uid': emoji});
     }
   }
 
   // Message long press menu
-  void _handleMessageLongPress(String docId, bool isMe, String messageText, String senderName, String? fileUrl, String type, Map<String, dynamic> currentReactions, String? fileName) {
+  void _handleMessageLongPress(
+    String docId,
+    bool isMe,
+    String messageText,
+    String senderName,
+    String? fileUrl,
+    String type,
+    Map<String, dynamic> currentReactions,
+    String? fileName,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
         child: Container(
           margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -480,14 +613,17 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: ["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) {
                     return GestureDetector(
-                      onTap: () { Navigator.pop(context); _toggleReaction(docId, emoji, currentReactions); },
+                      onTap: () {
+                        Navigator.pop(context);
+                        _toggleReaction(docId, emoji, currentReactions);
+                      },
                       child: Text(emoji, style: const TextStyle(fontSize: 28)),
                     );
                   }).toList(),
                 ),
               ),
               const Divider(height: 1),
-              
+
               // Response button
               ListTile(
                 leading: const Icon(Icons.reply, color: Colors.blue),
@@ -495,7 +631,13 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   setState(() {
-                    _replyMessage = {'id': docId, 'name': senderName, 'text': messageText.isEmpty ? (type == 'text' ? '' : 'Медия') : messageText};
+                    _replyMessage = {
+                      'id': docId,
+                      'name': senderName,
+                      'text': messageText.isEmpty
+                          ? (type == 'text' ? '' : 'Медия')
+                          : messageText,
+                    };
                   });
                 },
               ),
@@ -503,7 +645,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               // Save button
               if (fileUrl != null && fileUrl.isNotEmpty)
                 ListTile(
-                  leading: const Icon(Icons.download_rounded, color: Colors.purple),
+                  leading: const Icon(
+                    Icons.download_rounded,
+                    color: Colors.purple,
+                  ),
                   title: const Text('Запази в устройството'),
                   onTap: () {
                     Navigator.pop(context);
@@ -536,11 +681,16 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     Navigator.pop(context);
                     String pinText = messageText;
                     if (pinText.isEmpty) {
-                      if (type == 'image') pinText = '📷 Снимка';
-                      else if (type == 'audio') pinText = '🎤 Гласово съобщение';
-                      else if (type == 'video') pinText = '🎥 Видео';
-                      else if (type == 'file') pinText = '📄 Файл';
-                      else if (type == 'contact') pinText = '👤 Контакт';
+                      if (type == 'image')
+                        pinText = '📷 Снимка';
+                      else if (type == 'audio')
+                        pinText = '🎤 Гласово съобщение';
+                      else if (type == 'video')
+                        pinText = '🎥 Видео';
+                      else if (type == 'file')
+                        pinText = '📄 Файл';
+                      else if (type == 'contact')
+                        pinText = '👤 Контакт';
                     }
                     _pinMessage(docId, pinText, type);
                   },
@@ -553,7 +703,9 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: messageText));
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Копирано!")));
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text("Копирано!")));
                   },
                 ),
               if (isMe && type == 'text' && messageText.isNotEmpty)
@@ -570,21 +722,64 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               if (isMe || _isOrganizer)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Изтрий', style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Изтрий',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () async {
                     Navigator.pop(context);
 
+                    bool? confirm = await showDialog<bool>(
+                      context: this.context,
+                      builder: (BuildContext dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Изтриване на съобщение'),
+                          content: const Text(
+                            'Сигурни ли сте, че искате да изтриете това съобщение? Това действие не може да бъде отменено.',
+                          ),
+                          actions: [
+                            TextButton(
+                              child: const Text(
+                                'Отказ',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(false),
+                            ),
+                            TextButton(
+                              child: const Text(
+                                'Изтрий',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(true),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (confirm != true) return;
+
                     // Check if the message is pinned and unpin it if so
                     try {
-                      final campaignDoc = await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).get();
+                      final campaignDoc = await FirebaseFirestore.instance
+                          .collection('campaigns')
+                          .doc(widget.campaign.id)
+                          .get();
                       if (campaignDoc.exists) {
                         final data = campaignDoc.data() as Map<String, dynamic>;
                         if (data.containsKey('pinnedMessage')) {
-                          final pinned = data['pinnedMessage'] as Map<String, dynamic>;
+                          final pinned =
+                              data['pinnedMessage'] as Map<String, dynamic>;
                           if (pinned['id'] == docId) {
-                            await FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).update({
-                              'pinnedMessage': FieldValue.delete(),
-                            });
+                            await FirebaseFirestore.instance
+                                .collection('campaigns')
+                                .doc(widget.campaign.id)
+                                .update({'pinnedMessage': FieldValue.delete()});
                           }
                         }
                       }
@@ -594,13 +789,20 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
                     if (fileUrl != null && fileUrl.isNotEmpty) {
                       try {
-                        await FirebaseStorage.instance.refFromURL(fileUrl).delete();
+                        await FirebaseStorage.instance
+                            .refFromURL(fileUrl)
+                            .delete();
                       } catch (e) {
                         debugPrint("Error deleting file from storage: $e");
                       }
                     }
 
-                    FirebaseFirestore.instance.collection('campaigns').doc(widget.campaign.id).collection('messages').doc(docId).delete();
+                    FirebaseFirestore.instance
+                        .collection('campaigns')
+                        .doc(widget.campaign.id)
+                        .collection('messages')
+                        .doc(docId)
+                        .delete();
                   },
                 ),
             ],
@@ -613,7 +815,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
   bool _shouldShowDate(List<QueryDocumentSnapshot> docs, int index) {
     if (index == docs.length - 1) return true;
     final currentMsgTime = (docs[index]['timestamp'] as Timestamp?)?.toDate();
-    final previousMsgTime = (docs[index + 1]['timestamp'] as Timestamp?)?.toDate();
+    final previousMsgTime = (docs[index + 1]['timestamp'] as Timestamp?)
+        ?.toDate();
     if (currentMsgTime == null || previousMsgTime == null) return false;
     return currentMsgTime.day != previousMsgTime.day;
   }
@@ -622,9 +825,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
     final bool? campaignEnded = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CampaignAdminPanel(
-          campaign: widget.campaign,
-        ),
+        builder: (context) => CampaignAdminPanel(campaign: widget.campaign),
       ),
     );
 
@@ -641,7 +842,9 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       builder: (BuildContext ctx) {
         return AlertDialog(
           title: const Text("Напускане"),
-          content: const Text("Сигурни ли сте, че искате да се отпишете от тази кампания?"),
+          content: const Text(
+            "Сигурни ли сте, че искате да се отпишете от тази кампания?",
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -649,7 +852,7 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(ctx).pop(); 
+                Navigator.of(ctx).pop();
 
                 final user = FirebaseAuth.instance.currentUser;
 
@@ -660,19 +863,23 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   final messenger = ScaffoldMessenger.of(context);
 
                   try {
-                    await DatabaseService(uid: user.uid).leaveCampaign(widget.campaign.id);
-                    
+                    await DatabaseService(
+                      uid: user.uid,
+                    ).leaveCampaign(widget.campaign.id);
+
                     messenger.showSnackBar(
                       const SnackBar(
                         backgroundColor: greenPrimary,
                         content: Center(
-                          child: Text("Успешно напуснахте кампанията.", style: TextStyle(fontWeight: FontWeight.bold),)
-                        )
+                          child: Text(
+                            "Успешно напуснахте кампанията.",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ),
                     );
-                    
-                    navigator.pop(); 
-                    
+
+                    navigator.pop();
                   } catch (e) {
                     messenger.showSnackBar(
                       SnackBar(content: Text("Грешка: $e")),
@@ -680,7 +887,13 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   }
                 }
               },
-              child: const Text("Напусни", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              child: const Text(
+                "Напусни",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         );
@@ -704,7 +917,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                 title = data['title'];
               }
             }
-            return Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold));
+            return Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            );
           },
         ),
         backgroundColor: Colors.white,
@@ -719,7 +935,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               if (value == 'participants') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => CampaignParticipantsScreen(campaign: _currentCampaign)),
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CampaignParticipantsScreen(campaign: _currentCampaign),
+                  ),
                 );
               } else if (value == 'admin_panel') {
                 _openAdminPanel();
@@ -727,11 +946,32 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CampaignInfoScreen(campaign: _currentCampaign),
+                    builder: (context) =>
+                        CampaignInfoScreen(campaign: _currentCampaign),
                   ),
                 );
               } else if (value == 'leave') {
                 _confirmLeaveCampaign(context);
+              } else if (value == 'my_tasks') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MyTasksScreen(
+                      campaignId: _currentCampaign.id,
+                      currentUserId: _currentUid,
+                    ),
+                  ),
+                );
+              } else if (value == 'all_tasks') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AllTasksScreen(
+                      campaign: _currentCampaign,
+                      currentUserId: _currentUid,
+                    ),
+                  ),
+                );
               }
             },
             // The options in the menu
@@ -743,12 +983,45 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                     value: 'admin_panel',
                     child: Row(
                       children: [
-                        Icon(Icons.admin_panel_settings, color: Colors.black54, size: 20),
+                        Icon(
+                          Icons.admin_panel_settings,
+                          color: Colors.black54,
+                          size: 20,
+                        ),
                         SizedBox(width: 12),
                         Text('Админ панел'),
                       ],
                     ),
                   ),
+
+                // All tasks option (for organizers only)
+                if (_isOrganizer)
+                  const PopupMenuItem<String>(
+                    value: 'all_tasks',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.format_list_bulleted,
+                          color: Colors.black54,
+                          size: 20,
+                        ),
+                        SizedBox(width: 12),
+                        Text('Задачи'),
+                      ],
+                    ),
+                  ),
+
+                // My tasks option
+                const PopupMenuItem<String>(
+                  value: 'my_tasks',
+                  child: Row(
+                    children: [
+                      Icon(Icons.assignment, color: Colors.black54, size: 20),
+                      SizedBox(width: 12),
+                      Text('Моите задачи'),
+                    ],
+                  ),
+                ),
 
                 // Participants option
                 const PopupMenuItem<String>(
@@ -800,34 +1073,62 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               StreamBuilder<DocumentSnapshot>(
                 stream: _campaignStream,
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData || !snapshot.data!.exists) return const SizedBox.shrink();
-                  
+                  if (!snapshot.hasData || !snapshot.data!.exists)
+                    return const SizedBox.shrink();
+
                   final data = snapshot.data!.data() as Map<String, dynamic>?;
-                  if (data == null || !data.containsKey('pinnedMessage')) return const SizedBox.shrink();
-                  
+                  if (data == null || !data.containsKey('pinnedMessage'))
+                    return const SizedBox.shrink();
+
                   final pinned = data['pinnedMessage'] as Map<String, dynamic>;
                   final String text = pinned['text'] ?? '';
 
                   return Container(
                     width: double.infinity,
                     color: Colors.amber.withAlpha(50),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
-                        const Icon(Icons.push_pin, size: 18, color: Colors.orange),
+                        const Icon(
+                          Icons.push_pin,
+                          size: 18,
+                          color: Colors.orange,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text("Закачено съобщение", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 11)),
-                              Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                              const Text(
+                                "Закачено съобщение",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                text,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         if (_isOrganizer)
                           IconButton(
-                            icon: const Icon(Icons.close, size: 18, color: Colors.black54),
+                            icon: const Icon(
+                              Icons.close,
+                              size: 18,
+                              color: Colors.black54,
+                            ),
                             onPressed: _unpinMessage,
                             constraints: const BoxConstraints(),
                             padding: EdgeInsets.zero,
@@ -842,40 +1143,64 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                 child: StreamBuilder<QuerySnapshot>(
                   stream: _messagesStream,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text("Започнете разговора!", style: TextStyle(color: Colors.grey[400])));
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      return const Center(child: CircularProgressIndicator());
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
+                      return Center(
+                        child: Text(
+                          "Започнете разговора!",
+                          style: TextStyle(color: Colors.grey[400]),
+                        ),
+                      );
 
                     final docs = snapshot.data!.docs;
 
                     return ListView.builder(
                       reverse: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 20,
+                      ),
                       itemCount: docs.length,
                       itemBuilder: (context, index) {
                         final data = docs[index].data() as Map<String, dynamic>;
                         final isMe = data['senderId'] == _currentUid;
-                        final String? fileUrl = data['fileUrl'] ?? data['imageUrl'];
-                        final String type = data['type'] ?? (data['imageUrl'] != null ? 'image' : 'text');
-                        
+                        final String? fileUrl =
+                            data['fileUrl'] ?? data['imageUrl'];
+                        final String type =
+                            data['type'] ??
+                            (data['imageUrl'] != null ? 'image' : 'text');
+
                         String msgContent = data['text'] ?? '';
                         if (type == 'contact') {
-                           msgContent = "${data['contactName']} (${data['contactPhone']})";
+                          msgContent =
+                              "${data['contactName']} (${data['contactPhone']})";
                         }
 
-                        Map<String, dynamic> reactions = data['reactions'] != null ? Map<String, dynamic>.from(data['reactions']) : {};
+                        Map<String, dynamic> reactions =
+                            data['reactions'] != null
+                            ? Map<String, dynamic>.from(data['reactions'])
+                            : {};
 
                         String? roleTag;
                         final String senderId = data['senderId'] ?? '';
                         if (_currentCampaign.organizerId == senderId) {
                           roleTag = "Организатор";
-                        } else if (_currentCampaign.coorganizersIds.contains(senderId)) {
+                        } else if (_currentCampaign.coorganizersIds.contains(
+                          senderId,
+                        )) {
                           roleTag = "Съорганизатор";
                         }
 
                         return Column(
                           children: [
                             if (_shouldShowDate(docs, index))
-                               DateChip(date: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now()),
+                              DateChip(
+                                date:
+                                    (data['timestamp'] as Timestamp?)
+                                        ?.toDate() ??
+                                    DateTime.now(),
+                              ),
                             ChatBubble(
                               message: data['text'] ?? '',
                               fileUrl: fileUrl,
@@ -890,19 +1215,21 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                               isEdited: data['isEdited'] ?? false,
                               senderName: data['senderName'] ?? 'Потребител',
                               roleTag: roleTag,
-                              timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                              timestamp:
+                                  (data['timestamp'] as Timestamp?)?.toDate() ??
+                                  DateTime.now(),
                               reactions: reactions,
                               replyToName: data['replyToName'],
                               replyToText: data['replyToText'],
                               onLongPress: () => _handleMessageLongPress(
-                                docs[index].id, 
-                                isMe, 
-                                msgContent, 
+                                docs[index].id,
+                                isMe,
+                                msgContent,
                                 data['senderName'] ?? '',
                                 fileUrl,
                                 type,
                                 reactions,
-                                data['fileName']
+                                data['fileName'],
                               ),
                             ),
                           ],
@@ -912,33 +1239,79 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   },
                 ),
               ),
-              
-              if (_isUploading) const LinearProgressIndicator(minHeight: 2, color: greenPrimary),
- 
-               if (_editingMessage != null)
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Container(
-                       padding: const EdgeInsets.all(8),
-                       decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(12), border: Border(left: BorderSide(color: Colors.blue, width: 4))),
-                       child: Row(children: [
-                         const Icon(Icons.edit, color: Colors.blue, size: 20),
-                         const SizedBox(width: 8),
-                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                           const Text("Редактиране", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue)),
-                           Text(_editingMessage!['text']!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54))
-                         ])),
-                         IconButton(icon: const Icon(Icons.close, size: 20, color: Colors.grey), onPressed: () => setState(() => _editingMessage = null))
-                       ]),
+
+              if (_isUploading)
+                const LinearProgressIndicator(
+                  minHeight: 2,
+                  color: greenPrimary,
+                ),
+
+              if (_editingMessage != null)
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border(
+                        left: BorderSide(color: Colors.blue, width: 4),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit, color: Colors.blue, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Редактиране",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              Text(
+                                _editingMessage!['text']!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () =>
+                              setState(() => _editingMessage = null),
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
               if (_currentCampaign.status == 'ended')
                 Container(
                   width: double.infinity,
                   color: Colors.red.withAlpha(30),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   child: const Row(
                     children: [
                       Icon(Icons.info_outline, color: Colors.red, size: 20),
@@ -946,31 +1319,53 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                       Expanded(
                         child: Text(
                           "Тази кампания е прекратена от нейния организатор.",
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-              if (_currentCampaign.status == 'ended' && _isOrganizer && _showOrganizerEndBanner)
+              if (_currentCampaign.status == 'ended' &&
+                  _isOrganizer &&
+                  _showOrganizerEndBanner)
                 Container(
                   width: double.infinity,
                   color: blueSecondary.withAlpha(30),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
-                      Icon(Icons.admin_panel_settings, color: blueSecondary, size: 20),
+                      Icon(
+                        Icons.admin_panel_settings,
+                        color: blueSecondary,
+                        size: 20,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           "Като организатор, все още можете да изпращате съобщения в този чат.",
-                          style: TextStyle(color: blueSecondary, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(
+                            color: blueSecondary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 18, color: blueSecondary),
-                        onPressed: () => setState(() => _showOrganizerEndBanner = false),
+                        icon: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: blueSecondary,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showOrganizerEndBanner = false),
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
                       ),
@@ -978,41 +1373,51 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   ),
                 ),
 
-               if (!_isOrganizer && _currentCampaign.status == 'ended')
-                 Container(
-                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                   color: Colors.white,
-                   child: SafeArea(
-                     top: false,
-                     child: Container(
-                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                       decoration: BoxDecoration(
-                         color: Colors.grey[100],
-                         borderRadius: BorderRadius.circular(24),
-                         border: Border.all(color: Colors.grey[300]!)
-                       ),
-                       child: Row(
-                         mainAxisAlignment: MainAxisAlignment.center,
-                         children: [
-                           Icon(Icons.lock_outline, size: 18, color: Colors.grey[600]),
-                           const SizedBox(width: 12),
-                           Expanded(
-                             child: Text(
-                               "Не можете да изпращате съобщения в чата, защото кампанията е прекратена.",
-                               textAlign: TextAlign.center,
-                               style: TextStyle(
-                                 color: Colors.grey[600], 
-                                 fontSize: 13, 
-                                 fontWeight: FontWeight.w500,
-                               ),
-                             ),
-                           ),
-                         ],
-                       ),
-                     ),
-                   ),
-                 )
-               else
+              if (!_isOrganizer && _currentCampaign.status == 'ended')
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                  color: Colors.white,
+                  child: SafeArea(
+                    top: false,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.lock_outline,
+                            size: 18,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              "Не можете да изпращате съобщения в чата, защото кампанията е прекратена.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
                 ChatInputArea(
                   onSendText: _handleSendText,
                   onSendAudio: _handleSendAudio,
@@ -1034,11 +1439,18 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                   children: [
                     CircularProgressIndicator(color: Colors.white),
                     SizedBox(height: 16),
-                    Text("Обработка...", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      "Обработка...",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            )
+            ),
         ],
       ),
     );
@@ -1073,17 +1485,19 @@ class ChatInputArea extends StatefulWidget {
 class _ChatInputAreaState extends State<ChatInputArea> {
   final TextEditingController _controller = TextEditingController();
   final AudioRecorder _audioRecorder = AudioRecorder();
-  
+
   bool _showSendButton = false;
   bool _isRecording = false;
 
   @override
   void didUpdateWidget(ChatInputArea oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.editingMessage != oldWidget.editingMessage && widget.editingMessage != null) {
+    if (widget.editingMessage != oldWidget.editingMessage &&
+        widget.editingMessage != null) {
       _controller.text = widget.editingMessage!;
       _showSendButton = true;
-    } else if (widget.editingMessage == null && oldWidget.editingMessage != null) {
+    } else if (widget.editingMessage == null &&
+        oldWidget.editingMessage != null) {
       _controller.clear();
       _showSendButton = false;
     }
@@ -1101,7 +1515,8 @@ class _ChatInputAreaState extends State<ChatInputArea> {
     try {
       if (await _audioRecorder.hasPermission()) {
         final Directory tempDir = await getTemporaryDirectory();
-        final String filePath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.m4a';
+        final String filePath =
+            '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.m4a';
         await _audioRecorder.start(const RecordConfig(), path: filePath);
         setState(() => _isRecording = true);
         HapticFeedback.mediumImpact();
@@ -1119,7 +1534,7 @@ class _ChatInputAreaState extends State<ChatInputArea> {
       final String? path = await _audioRecorder.stop();
       setState(() => _isRecording = false);
       if (path != null) {
-        widget.onSendAudio(path); 
+        widget.onSendAudio(path);
       }
     } catch (e) {
       debugPrint("Stop Error: $e");
@@ -1141,10 +1556,42 @@ class _ChatInputAreaState extends State<ChatInputArea> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _AttachmentOption(icon: Icons.image, label: "Галерия", color: Colors.blue, onTap: () { Navigator.pop(ctx); widget.onAttachmentTap('gallery'); }),
-              _AttachmentOption(icon: Icons.videocam, label: "Видео", color: Colors.red, onTap: () { Navigator.pop(ctx); widget.onAttachmentTap('video'); }),
-              _AttachmentOption(icon: Icons.insert_drive_file, label: "Файл", color: Colors.orange, onTap: () { Navigator.pop(ctx); widget.onAttachmentTap('file'); }),
-              _AttachmentOption(icon: Icons.person, label: "Контакт", color: Colors.purple, onTap: () { Navigator.pop(ctx); widget.onAttachmentTap('contact'); }),
+              _AttachmentOption(
+                icon: Icons.image,
+                label: "Галерия",
+                color: Colors.blue,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onAttachmentTap('gallery');
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.videocam,
+                label: "Видео",
+                color: Colors.red,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onAttachmentTap('video');
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.insert_drive_file,
+                label: "Файл",
+                color: Colors.orange,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onAttachmentTap('file');
+                },
+              ),
+              _AttachmentOption(
+                icon: Icons.person,
+                label: "Контакт",
+                color: Colors.purple,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onAttachmentTap('contact');
+                },
+              ),
             ],
           ),
         ),
@@ -1155,7 +1602,7 @@ class _ChatInputAreaState extends State<ChatInputArea> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 8), 
+      padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 8),
       color: Colors.white,
       child: SafeArea(
         child: Column(
@@ -1168,7 +1615,9 @@ class _ChatInputAreaState extends State<ChatInputArea> {
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(12),
-                  border: const Border(left: BorderSide(color: greenPrimary, width: 4)),
+                  border: const Border(
+                    left: BorderSide(color: greenPrimary, width: 4),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -1178,138 +1627,190 @@ class _ChatInputAreaState extends State<ChatInputArea> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Отговор до ${widget.replyingMessage!['name']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: greenPrimary)),
-                          Text(widget.replyingMessage!['text']!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                          Text(
+                            "Отговор до ${widget.replyingMessage!['name']}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: greenPrimary,
+                            ),
+                          ),
+                          Text(
+                            widget.replyingMessage!['text']!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Colors.grey,
+                      ),
                       onPressed: widget.onCancelReply,
                       constraints: const BoxConstraints(),
                       padding: EdgeInsets.zero,
-                    )
+                    ),
                   ],
                 ),
               ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-             AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                child: SizedBox(
-                  width: _isRecording ? 0 : 48,
-                  child: !_isRecording 
-                    ? Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.grey, size: 28),
-                          onPressed: _showAttachmentOptions,
-                        ),
-                      )
-                    : null,
-                ),
-              ),
-
-              // Text input / Recording indicator
-              Expanded(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _isRecording ? Colors.red.withAlpha(25) : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: _isRecording ? Colors.red : Colors.grey[300]!)
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  child: SizedBox(
+                    width: _isRecording ? 0 : 48,
+                    child: !_isRecording
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                color: Colors.grey,
+                                size: 28,
+                              ),
+                              onPressed: _showAttachmentOptions,
+                            ),
+                          )
+                        : null,
                   ),
-                  // Recording indicator
-                  child: _isRecording
-                  ? const SizedBox(
-                      height: 48,
-                      child: Row(
-                        children: [
-                          Icon(Icons.fiber_manual_record, color: Colors.red, size: 20),
-                          SizedBox(width: 8),
-                          DefaultTextStyle(
-                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16),
-                            child: Text("Записване..."),
+                ),
+
+                // Text input / Recording indicator
+                Expanded(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isRecording
+                          ? Colors.red.withAlpha(25)
+                          : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: _isRecording ? Colors.red : Colors.grey[300]!,
+                      ),
+                    ),
+                    // Recording indicator
+                    child: _isRecording
+                        ? const SizedBox(
+                            height: 48,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.fiber_manual_record,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                DefaultTextStyle(
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                  child: Text("Записване..."),
+                                ),
+                              ],
+                            ),
+                          )
+                        : TextField(
+                            controller: _controller,
+                            maxLines: 5,
+                            minLines: 1,
+                            textCapitalization: TextCapitalization.sentences,
+                            onChanged: (text) {
+                              final shouldShow = text.trim().isNotEmpty;
+                              if (_showSendButton != shouldShow) {
+                                setState(() {
+                                  _showSendButton = shouldShow;
+                                });
+                              }
+                            },
+                            decoration: const InputDecoration(
+                              hintText: "Напишете съобщение...",
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Send / Record button
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: GestureDetector(
+                    onTap: _showSendButton
+                        ? () {
+                            widget.onSendText(_controller.text.trim());
+                            _controller.clear();
+                            setState(() => _showSendButton = false);
+                          }
+                        : null,
+
+                    onLongPressStart: !_showSendButton
+                        ? (_) => _startRecording()
+                        : null,
+                    onLongPressEnd: !_showSendButton
+                        ? (_) => _stopRecording()
+                        : null,
+
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _isRecording ? Colors.red : greenPrimary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_isRecording ? Colors.red : greenPrimary)
+                                .withAlpha(100),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                    )
-                  : TextField(
-                      controller: _controller,
-                      maxLines: 5,
-                      minLines: 1,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (text) {
-                        final shouldShow = text.trim().isNotEmpty;
-                        if (_showSendButton != shouldShow) {
-                          setState(() {
-                            _showSendButton = shouldShow;
-                          });
-                        }
-                      },
-                      decoration: const InputDecoration(
-                        hintText: "Напишете съобщение...",
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 8),
-                      ),
-                    ),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Send / Record button
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: GestureDetector(
-                  onTap: _showSendButton 
-                    ? () {
-                        widget.onSendText(_controller.text.trim());
-                        _controller.clear();
-                        setState(() => _showSendButton = false);
-                      }
-                    : null,
-                  
-                  onLongPressStart: !_showSendButton ? (_) => _startRecording() : null,
-                  onLongPressEnd: !_showSendButton ? (_) => _stopRecording() : null,
-
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _isRecording ? Colors.red : greenPrimary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                         BoxShadow(color: (_isRecording ? Colors.red : greenPrimary).withAlpha(100), blurRadius: 4, offset: const Offset(0, 2))
-                      ]
-                    ),
-                    child: Center(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
-                        child: Icon(
-                          _showSendButton ? (widget.editingMessage != null ? Icons.check_circle_outline : Icons.send_rounded) : Icons.mic,
-                          key: ValueKey(_showSendButton),
-                          color: Colors.white,
-                          size: 24,
+                      child: Center(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (child, anim) =>
+                              ScaleTransition(scale: anim, child: child),
+                          child: Icon(
+                            _showSendButton
+                                ? (widget.editingMessage != null
+                                      ? Icons.check_circle_outline
+                                      : Icons.send_rounded)
+                                : Icons.mic,
+                            key: ValueKey(_showSendButton),
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 // Attachment option widget
@@ -1318,9 +1819,31 @@ class _AttachmentOption extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const _AttachmentOption({required this.icon, required this.label, required this.color, required this.onTap});
+  const _AttachmentOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
   @override
   Widget build(BuildContext context) {
-    return InkWell(onTap: onTap, child: Column(mainAxisSize: MainAxisSize.min, children: [CircleAvatar(radius: 25, backgroundColor: color.withAlpha(25), child: Icon(icon, color: color, size: 28)), const SizedBox(height: 8), Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))]));
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: color.withAlpha(25),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
   }
 }

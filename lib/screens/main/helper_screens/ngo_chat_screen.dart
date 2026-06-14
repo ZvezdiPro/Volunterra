@@ -370,10 +370,13 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
             setState(() => _isUploading = false);
          }
       } else if (type == 'contact') {
-        if (await FlutterContacts.requestPermission(readonly: true)) {
-          final Contact? contact = await FlutterContacts.openExternalPick();
-          if (contact != null && contact.phones.isNotEmpty) {
-            _sendMessage(type: 'contact', contactName: contact.displayName, contactPhone: contact.phones.first.number);
+        if ((await FlutterContacts.permissions.request(PermissionType.read)).name == 'granted') {
+          final String? contactId = await FlutterContacts.native.showPicker();
+          if (contactId != null) {
+            final Contact? contact = await FlutterContacts.get(contactId, properties: {ContactProperty.phone});
+            if (contact != null && contact.phones.isNotEmpty) {
+              _sendMessage(type: 'contact', contactName: contact.displayName, contactPhone: contact.phones.first.number);
+            }
           }
         }
       }
@@ -555,6 +558,28 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
                   title: const Text('Изтрий', style: TextStyle(color: Colors.red)),
                   onTap: () async {
                     Navigator.pop(context);
+
+                    bool? confirm = await showDialog<bool>(
+                      context: this.context,
+                      builder: (BuildContext dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Изтриване на съобщение'),
+                          content: const Text('Сигурни ли сте, че искате да изтриете това съобщение? Това действие не може да бъде отменено.'),
+                          actions: [
+                            TextButton(
+                              child: const Text('Отказ', style: TextStyle(color: Colors.grey)),
+                              onPressed: () => Navigator.of(dialogContext).pop(false),
+                            ),
+                            TextButton(
+                              child: const Text('Изтрий', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                              onPressed: () => Navigator.of(dialogContext).pop(true),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (confirm != true) return;
 
                     // Check if the message is pinned and unpin it if so
                     try {
