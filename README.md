@@ -91,14 +91,18 @@ To run this project locally:
     ```
 
 3.  **Firebase Setup:**
-    * Create a project in the Firebase Console.
-    * Add Android/iOS apps in the console.
-    * Download `google-services.json` (for Android) and `GoogleService-Info.plist` (for iOS).
-    * Place them in `android/app/` and `ios/Runner/` respectively.
+    * Register the Android app with package name `com.volunteer.volunteer_app` for development and put its `google-services.json` at `android/app/src/dev/google-services.json`.
+    * Register the Android app with package name `Volunterra.Prod` for production and put its `google-services.json` at `android/app/src/prod/google-services.json`.
+    * If both apps are registered in the same Firebase project, they share that project's Firebase services and data. Use separate Firebase projects if development data must be isolated from production.
 
-4.  **Run the app:**
+4.  **Run the development app:**
     ```bash
-    flutter run
+    flutter run --flavor dev
+    ```
+
+5.  **Build the production app:**
+    ```bash
+    flutter build appbundle --flavor prod
     ```
 
 ---

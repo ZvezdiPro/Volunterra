@@ -371,11 +371,18 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
          }
       } else if (type == 'contact') {
         if ((await FlutterContacts.permissions.request(PermissionType.read)).name == 'granted') {
-          final String? contactId = await FlutterContacts.native.showPicker();
-          if (contactId != null) {
-            final Contact? contact = await FlutterContacts.get(contactId, properties: {ContactProperty.phone});
+          final Contact? pickedContact = await FlutterContacts.native.showPicker();
+          if (pickedContact != null) {
+            final Contact? contact = await FlutterContacts.get(
+              pickedContact.id!, // Pass the String ID here
+              properties: {ContactProperty.phone},
+            );
             if (contact != null && contact.phones.isNotEmpty) {
-              _sendMessage(type: 'contact', contactName: contact.displayName, contactPhone: contact.phones.first.number);
+              _sendMessage(
+                type: 'contact',
+                contactName: contact.displayName,
+                contactPhone: contact.phones.first.number,
+              );
             }
           }
         }

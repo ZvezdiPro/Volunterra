@@ -1,3 +1,15 @@
+import com.android.build.gradle.LibraryExtension
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.9.0")
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -7,7 +19,7 @@ allprojects {
 
 plugins {
     id("com.google.gms.google-services") version "4.4.4" apply false
-    id("org.jetbrains.kotlin.android") version "2.3.10" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 
 val newBuildDir: Directory =
@@ -22,6 +34,20 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+subprojects {
+    plugins.withId("com.android.library") {
+        project.afterEvaluate {
+            val javaTarget =
+                extensions.getByType<LibraryExtension>().compileOptions.targetCompatibility.toString()
+            tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+                compilerOptions.jvmTarget.set(
+                    org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaTarget),
+                )
+            }
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

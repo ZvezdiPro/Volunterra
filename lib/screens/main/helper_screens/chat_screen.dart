@@ -467,10 +467,10 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
               PermissionType.read,
             )).name ==
             'granted') {
-          final String? contactId = await FlutterContacts.native.showPicker();
-          if (contactId != null) {
+          final Contact? pickedContact = await FlutterContacts.native.showPicker();
+          if (pickedContact != null) {
             final Contact? contact = await FlutterContacts.get(
-              contactId,
+              pickedContact.id!, // Pass the String ID here
               properties: {ContactProperty.phone},
             );
             if (contact != null && contact.phones.isNotEmpty) {

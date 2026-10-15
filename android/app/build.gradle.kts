@@ -17,8 +17,8 @@ val localProperties = getLocalProperties(rootProject)
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // id("com.android.built-in-kotlin")
+    // The Flutter Gradle Plugin must be applied after the Android plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
@@ -40,10 +40,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
+    buildFeatures {
+        resValues = true
     }
 
     defaultConfig {
@@ -56,12 +54,32 @@ android {
         manifestPlaceholders["googleMapsApiKey"] = localProperties.getProperty("googleMapsApiKey", "")
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationId = "com.volunteer.volunteer_app"
+            resValue("string", "app_name", "Volunterra Dev")
+        }
+        create("prod") {
+            dimension = "environment"
+            applicationId = "Volunterra.Prod"
+            resValue("string", "app_name", "Volunterra")
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
