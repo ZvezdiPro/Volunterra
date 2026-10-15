@@ -322,24 +322,35 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
 
     try {
       if (type == 'gallery') {
-         final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-         if (image != null) {
-           File file = File(image.path);
-           if (file.lengthSync() > maxImageSize) {
-             _showSizeExceededError("Изображението не трябва да надвишава 10 MB!");
-             return;
-           }
-           double? imageAspectRatio;
-           try {
-             final data = await file.readAsBytes();
-             final codec = await ui.instantiateImageCodec(data);
-             final frameInfo = await codec.getNextFrame();
-             imageAspectRatio = frameInfo.image.width / frameInfo.image.height;
-           } catch (e) {
-             debugPrint("Image decode error: $e");
-           }
-           _uploadAndSend(file, 'chat_images', 'image', 'jpg', aspectRatio: imageAspectRatio);
-         }
+        final images = await picker.pickMultiImage(imageQuality: 70);
+        for (final image in images) {
+          final file = File(image.path);
+          if (await file.length() > maxImageSize) {
+            _showSizeExceededError(
+              'Изображението ${image.name} надвишава 10 MB.',
+            );
+            continue;
+          }
+
+          double? imageAspectRatio;
+          try {
+            final data = await file.readAsBytes();
+            final codec = await ui.instantiateImageCodec(data);
+            final frameInfo = await codec.getNextFrame();
+            imageAspectRatio = frameInfo.image.width / frameInfo.image.height;
+            codec.dispose();
+          } catch (e) {
+            debugPrint('Image decode error: $e');
+          }
+
+          await _uploadAndSend(
+            file,
+            'chat_images',
+            'image',
+            'jpg',
+            aspectRatio: imageAspectRatio,
+          );
+        }
       } else if (type == 'video') {
          final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
          if (video != null) {
@@ -458,12 +469,15 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
-        child: Container(
-          margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Material(
+            color: Colors.white,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               // Reactions row
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -617,7 +631,8 @@ class _NgoChatScreenState extends State<NgoChatScreen> {
                     FirebaseFirestore.instance.collection('ngos').doc(widget.ngo.id).collection('messages').doc(docId).delete();
                   },
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

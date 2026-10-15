@@ -395,28 +395,28 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
 
     try {
       if (type == 'gallery') {
-        final XFile? image = await picker.pickImage(
-          source: ImageSource.gallery,
-          imageQuality: 70,
-        );
-        if (image != null) {
+        final images = await picker.pickMultiImage(imageQuality: 70);
+        for (final image in images) {
           File file = File(image.path);
-          if (file.lengthSync() > maxImageSize) {
+          if (await file.length() > maxImageSize) {
             _showSizeExceededError(
-              "Изображението не трябва да надвишава 10 MB!",
+              'Изображението ${image.name} надвишава 10 MB.',
             );
-            return;
+            continue;
           }
+
           double? imageAspectRatio;
           try {
             final data = await file.readAsBytes();
             final codec = await ui.instantiateImageCodec(data);
             final frameInfo = await codec.getNextFrame();
             imageAspectRatio = frameInfo.image.width / frameInfo.image.height;
+            codec.dispose();
           } catch (e) {
             debugPrint("Image decode error: $e");
           }
-          _uploadAndSend(
+
+          await _uploadAndSend(
             file,
             'chat_images',
             'image',
@@ -597,15 +597,15 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
-        child: Container(
-          margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Material(
             color: Colors.white,
+            clipBehavior: Clip.antiAlias,
             borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               // Reactions row
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -805,7 +805,8 @@ class _CampaignChatScreenState extends State<CampaignChatScreen> {
                         .delete();
                   },
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:volunteer_app/models/campaign.dart';
+import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/models/volunteer.dart';
+import 'package:volunteer_app/screens/main/helper_screens/direct_chat_screen.dart';
 import 'package:volunteer_app/services/database.dart';
+import 'package:volunteer_app/services/direct_chat_service.dart';
 import 'package:volunteer_app/shared/colors.dart';
 import 'package:volunteer_app/screens/main/helper_screens/campaign_details_screen.dart';
-import 'package:volunteer_app/models/ngo.dart';
 import 'package:volunteer_app/screens/main/helper_screens/public_ngo_screen.dart';
 
 class PublicProfileScreen extends StatefulWidget {
@@ -22,6 +26,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   int _volunteerHours = 0;
   List<Campaign> _recentCampaigns = [];
   bool _isLoading = true;
+  bool _isStartingChat = false;
 
   @override
   void initState() {
@@ -30,7 +35,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   }
 
   Future<void> _loadVolunteerData() async {
-    final DatabaseService dbService = DatabaseService(uid: widget.volunteer.uid);
+    final DatabaseService dbService = DatabaseService(
+      uid: widget.volunteer.uid,
+    );
 
     try {
       final results = await Future.wait([
@@ -39,13 +46,16 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       ]);
 
       final allCampaigns = [...results[0], ...results[1]];
-      
+
       allCampaigns.sort((a, b) => b.startDate.compareTo(a.startDate));
 
       if (mounted) {
         setState(() {
           _campaignsCount = allCampaigns.length;
-          _volunteerHours = allCampaigns.fold(0, (sum, campaign) => sum + campaign.durationInHours);
+          _volunteerHours = allCampaigns.fold(
+            0,
+            (sum, campaign) => sum + campaign.durationInHours,
+          );
           _recentCampaigns = allCampaigns.take(3).toList(); // Взимаме топ 3
           _isLoading = false;
         });
@@ -55,241 +65,428 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
+  Future<void> _startDirectChat(Object currentUser, String currentUid) async {
+    if (_isStartingChat) return;
+
+    final currentName = currentUser is NGO
+        ? currentUser.name
+        : currentUser is VolunteerUser
+        ? '${currentUser.firstName} ${currentUser.lastName}'.trim()
+        : FirebaseAuth.instance.currentUser?.displayName ?? 'Потребител';
+    final currentAvatarUrl = currentUser is NGO
+        ? currentUser.logoUrl
+        : currentUser is VolunteerUser
+        ? currentUser.avatarUrl
+        : FirebaseAuth.instance.currentUser?.photoURL;
+
+    setState(() => _isStartingChat = true);
+    try {
+      final chatId = await DirectChatService().createOrGetChat(
+        currentUid: currentUid,
+        currentName: currentName,
+        currentAvatarUrl: currentAvatarUrl,
+        recipientUid: widget.volunteer.uid,
+        recipientName:
+            '${widget.volunteer.firstName} ${widget.volunteer.lastName}'.trim(),
+        recipientAvatarUrl: widget.volunteer.avatarUrl,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DirectChatScreen(
+            chatId: chatId,
+            currentUid: currentUid,
+            currentName: currentName,
+            currentAvatarUrl: currentAvatarUrl,
+            recipientUid: widget.volunteer.uid,
+            recipientName:
+                '${widget.volunteer.firstName} ${widget.volunteer.lastName}'
+                    .trim(),
+            recipientAvatarUrl: widget.volunteer.avatarUrl,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Неуспешно започване на чат: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isStartingChat = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final String memberSince = DateFormat('dd.MM.yyyy').format(widget.volunteer.createdAt);
+    final String memberSince = DateFormat(
+      'dd.MM.yyyy',
+    ).format(widget.volunteer.createdAt);
+    final currentUser = Provider.of<Object?>(context);
+    final currentAuthUser = FirebaseAuth.instance.currentUser;
+    final canStartChat =
+        currentAuthUser != null &&
+        !currentAuthUser.isAnonymous &&
+        currentAuthUser.uid != widget.volunteer.uid &&
+        (currentUser is VolunteerUser || currentUser is NGO);
 
     return Scaffold(
-      backgroundColor: backgroundGrey, 
+      backgroundColor: backgroundGrey,
       appBar: AppBar(
-        title: const Text('Профил на доброволец', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20)),
+        title: const Text(
+          'Профил на доброволец',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         centerTitle: true,
         backgroundColor: backgroundGrey,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: greenPrimary)) 
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Profile picture
-                CircleAvatar(
-                  radius: 50.0,
-                  backgroundImage: (widget.volunteer.avatarUrl != null && widget.volunteer.avatarUrl!.isNotEmpty)
-                    ? NetworkImage(widget.volunteer.avatarUrl!) as ImageProvider
-                    : const AssetImage('assets/images/profile_placeholder.png'),
-                  backgroundColor: Colors.transparent,
-                ),
-                const SizedBox(height: 10.0),
-
-                // Name and surname
-                Text(
-                  '${widget.volunteer.firstName} ${widget.volunteer.lastName}',
-                  style: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-                ),
-
-                const SizedBox(height: 20.0),
-
-                // Stats
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    color: cardGrey,
-                    borderRadius: BorderRadius.circular(15.0),
-                    boxShadow: [
-                      BoxShadow(color: Colors.grey.shade300, blurRadius: 10, offset: const Offset(0, 5)),
-                    ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: greenPrimary))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Profile picture
+                  CircleAvatar(
+                    radius: 50.0,
+                    backgroundImage:
+                        (widget.volunteer.avatarUrl != null &&
+                            widget.volunteer.avatarUrl!.isNotEmpty)
+                        ? NetworkImage(widget.volunteer.avatarUrl!)
+                              as ImageProvider
+                        : const AssetImage(
+                            'assets/images/profile_placeholder.png',
+                          ),
+                    backgroundColor: Colors.transparent,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem('$_campaignsCount', 'Кампании'),
-                      _buildVerticalDivider(),
-                      _buildStatItem('$_volunteerHours', 'Часа'),
-                      _buildVerticalDivider(),
-                      _buildStatItem(memberSince, 'Член от'),
-                    ],
+                  const SizedBox(height: 10.0),
+
+                  // Name and surname
+                  Text(
+                    '${widget.volunteer.firstName} ${widget.volunteer.lastName}',
+                    style: const TextStyle(
+                      fontSize: 18.0,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 30.0),
+                  if (canStartChat) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _isStartingChat
+                            ? null
+                            : () => _startDirectChat(
+                                currentUser!,
+                                currentAuthUser.uid,
+                              ),
+                        icon: _isStartingChat
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.chat_bubble_outline),
+                        label: Text(
+                          _isStartingChat ? 'Отваряне на чата...' : 'Чат',
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: greenPrimary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
 
-                // Recent activity
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Последна активност',
-                    style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-                  ),
-                ),
+                  const SizedBox(height: 20.0),
 
-                const SizedBox(height: 10.0),
-
-                if (_recentCampaigns.isEmpty)
+                  // Stats
                   Container(
-                    padding: const EdgeInsets.all(20),
-                    width: double.infinity,
-                    decoration: BoxDecoration(color: cardGrey, borderRadius: BorderRadius.circular(12)),
-                    child: const Text('Няма скорошна активност.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-                  )
-                else
-                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12.0,
+                      horizontal: 10.0,
+                    ),
                     decoration: BoxDecoration(
                       color: cardGrey,
-                      borderRadius: BorderRadius.circular(12.0),
+                      borderRadius: BorderRadius.circular(15.0),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: const Offset(0, 2)),
+                        BoxShadow(
+                          color: Colors.grey.shade300,
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
                       ],
                     ),
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _recentCampaigns.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1, indent: 30, endIndent: 30),
-                      itemBuilder: (context, index) {
-                        final campaign = _recentCampaigns[index];
-                        return ListTile(
-                          leading: const Icon(Icons.event_note, color: greenPrimary),
-                          title: Text(
-                            campaign.title,
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                          ),
-                          subtitle: Text(
-                            'На: ${DateFormat('dd.MM.yyyy').format(campaign.startDate)}',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                          ),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CampaignDetailsScreen(
-                                  campaign: campaign,
-                                  showRegisterButton: false,
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem('$_campaignsCount', 'Кампании'),
+                        _buildVerticalDivider(),
+                        _buildStatItem('$_volunteerHours', 'Часа'),
+                        _buildVerticalDivider(),
+                        _buildStatItem(memberSince, 'Член от'),
+                      ],
                     ),
                   ),
-                  
-                const SizedBox(height: 20.0),
 
-                // NGOs
-                StreamBuilder<List<NGO>>(
-                  stream: DatabaseService(uid: widget.volunteer.uid).userNgos,
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
+                  const SizedBox(height: 30.0),
 
-                    final ngos = snapshot.data!;
+                  // Recent activity
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Последна активност',
+                      style: TextStyle(
+                        fontSize: 18.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Организации',
-                            style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 10.0),
+
+                  if (_recentCampaigns.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: cardGrey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Няма скорошна активност.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  else
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardGrey,
+                        borderRadius: BorderRadius.circular(12.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(10),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        const SizedBox(height: 10.0),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: cardGrey,
-                            borderRadius: BorderRadius.circular(12.0),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 5, offset: const Offset(0, 2)),
-                            ],
-                          ),
-                          child: ListView.separated(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: ngos.length,
-                            separatorBuilder: (context, index) => const Divider(height: 1, indent: 30, endIndent: 30),
-                            itemBuilder: (context, index) {
-                              final ngo = ngos[index];
-                              final isAdmin = ngo.admins.contains(widget.volunteer.uid);
-                              final isMember = ngo.members.contains(widget.volunteer.uid);
-                              
-                              Color tagColor;
-                              String tagText;
-                              if (isAdmin) {
-                                tagColor = accentAmber;
-                                tagText = 'Администратор';
-                              } else if (isMember) {
-                                tagColor = blueSecondary;
-                                tagText = 'Член';
-                              } else {
-                                tagColor = greenPrimary;
-                                tagText = 'Следва';
-                              }
-
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: Colors.grey.shade200,
-                                  backgroundImage: (ngo.logoUrl != null && ngo.logoUrl!.isNotEmpty)
-                                      ? NetworkImage(ngo.logoUrl!) as ImageProvider
-                                      : null,
-                                  child: (ngo.logoUrl == null || ngo.logoUrl!.isEmpty)
-                                      ? const Icon(Icons.business, color: Colors.grey, size: 20)
-                                      : null,
+                        ],
+                      ),
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _recentCampaigns.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 1, indent: 30, endIndent: 30),
+                        itemBuilder: (context, index) {
+                          final campaign = _recentCampaigns[index];
+                          return ListTile(
+                            leading: const Icon(
+                              Icons.event_note,
+                              color: greenPrimary,
+                            ),
+                            title: Text(
+                              campaign.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'На: ${DateFormat('dd.MM.yyyy').format(campaign.startDate)}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CampaignDetailsScreen(
+                                    campaign: campaign,
+                                    showRegisterButton: false,
+                                  ),
                                 ),
-                                title: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        ngo.name,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 8),
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: tagColor.withAlpha(30),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        tagText,
-                                        style: TextStyle(color: tagColor, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => PublicNgoScreen(ngo: ngo),
-                                    ),
-                                  );
-                                },
                               );
                             },
+                          );
+                        },
+                      ),
+                    ),
+
+                  const SizedBox(height: 20.0),
+
+                  // NGOs
+                  StreamBuilder<List<NGO>>(
+                    stream: DatabaseService(uid: widget.volunteer.uid).userNgos,
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final ngos = snapshot.data!;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Организации',
+                              style: TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 20.0),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                          const SizedBox(height: 10.0),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: cardGrey,
+                              borderRadius: BorderRadius.circular(12.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(10),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ListView.separated(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: ngos.length,
+                              separatorBuilder: (context, index) =>
+                                  const Divider(
+                                    height: 1,
+                                    indent: 30,
+                                    endIndent: 30,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final ngo = ngos[index];
+                                final isAdmin = ngo.admins.contains(
+                                  widget.volunteer.uid,
+                                );
+                                final isMember = ngo.members.contains(
+                                  widget.volunteer.uid,
+                                );
+
+                                Color tagColor;
+                                String tagText;
+                                if (isAdmin) {
+                                  tagColor = accentAmber;
+                                  tagText = 'Администратор';
+                                } else if (isMember) {
+                                  tagColor = blueSecondary;
+                                  tagText = 'Член';
+                                } else {
+                                  tagColor = greenPrimary;
+                                  tagText = 'Следва';
+                                }
+
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: Colors.grey.shade200,
+                                    backgroundImage:
+                                        (ngo.logoUrl != null &&
+                                            ngo.logoUrl!.isNotEmpty)
+                                        ? NetworkImage(ngo.logoUrl!)
+                                              as ImageProvider
+                                        : null,
+                                    child:
+                                        (ngo.logoUrl == null ||
+                                            ngo.logoUrl!.isEmpty)
+                                        ? const Icon(
+                                            Icons.business,
+                                            color: Colors.grey,
+                                            size: 20,
+                                          )
+                                        : null,
+                                  ),
+                                  title: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          ngo.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: tagColor.withAlpha(30),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          tagText,
+                                          style: TextStyle(
+                                            color: tagColor,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            PublicNgoScreen(ngo: ngo),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 20.0),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
     );
   }
 
@@ -300,7 +497,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Widget _buildStatItem(String value, String label) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold, color: Colors.black)),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20.0,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
         Text(label, style: TextStyle(fontSize: 14.0, color: Colors.grey[600])),
       ],
     );

@@ -71,10 +71,11 @@ class _AssignTaskScreenState extends State<AssignTaskScreen> {
               return fullName.contains(searchQuery.toLowerCase());
             }).toList();
 
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            return Material(
+              color: Colors.white,
+              clipBehavior: Clip.antiAlias,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
               child: DraggableScrollableSheet(
                 initialChildSize: 0.6,
